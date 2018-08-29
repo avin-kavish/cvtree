@@ -79,6 +79,8 @@ class Bacteria
 	long total;
 	long total_l;
 	long complement;
+	double vector_len;
+	double vector_len_sqrt;
 	std::string name;
 
 	Bacteria(std::string filename)
@@ -115,9 +117,12 @@ class Bacteria
 			{
 				tempv[pos] = dense_stochastic[i];
 				tempi[pos] = i;
+				vector_len += tempv[pos] * tempv[pos];
 				pos++;
 			}
 		}
+		count = pos;
+		vector_len_sqrt = sqrt(vector_len);
 		cudaMallocManaged(&sparse_vector, pos * sizeof(double));
 		cudaMallocManaged(&sparse_index, pos * sizeof(long));
 		cudaMemcpy(sparse_vector, tempv, pos * sizeof(double), cudaMemcpyHostToHost);
