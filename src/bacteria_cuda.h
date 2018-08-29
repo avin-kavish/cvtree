@@ -17,6 +17,11 @@ void Init()
 		M2 *= AA_NUMBER;
 	M1 = M2 * AA_NUMBER; // M1 = AA_NUMBER ^ (LEN-1);
 	M = M1 * AA_NUMBER;  // M  = AA_NUMBER ^ (LEN);
+
+	std::cout << "Init Constants\n"
+		 << "M1: " << M1
+		 << "\tM: " << M
+		 << std::endl;
 }
 
 class Bacteria
@@ -28,6 +33,7 @@ class Bacteria
 	{
 		cudaMallocManaged(&vector, M * sizeof(long));
 		cudaMallocManaged(&second, M1 * sizeof(long));
+		cudaMallocManaged(&one_l, AA_NUMBER * sizeof(long));
 		memset(vector, 0, M * sizeof(long));
 		memset(second, 0, M1 * sizeof(long));
 		memset(one_l, 0, AA_NUMBER * sizeof(long));
@@ -69,7 +75,7 @@ class Bacteria
 	double* dense_stochastic;
 	long *vector;
 	long *second;
-	long one_l[AA_NUMBER];
+	long* one_l;
 	long total;
 	long total_l;
 	long complement;
@@ -99,21 +105,27 @@ class Bacteria
     }
 
     void DenseToSparse() {
-		cudaMallocManaged(&sparse_vector, count * sizeof(long));
-		cudaMallocManaged(&sparse_index, count * sizeof(long));
+		double* tempv = (double*) malloc(M * sizeof(double));
+		long* tempi = (long*) malloc(M * sizeof(long));
 
 		int pos = 0;
 		for (long i = 0; i < M; i++)
 		{
 			if (dense_stochastic[i] != 0)
 			{
-				sparse_vector[pos] = dense_stochastic[i];
-				sparse_index[pos] = i;
+				tempv[pos] = dense_stochastic[i];
+				tempi[pos] = i;
 				pos++;
 			}
 		}
+		cudaMallocManaged(&sparse_vector, pos * sizeof(double));
+		cudaMallocManaged(&sparse_index, pos * sizeof(long));
+		cudaMemcpy(sparse_vector, tempv, pos * sizeof(double), cudaMemcpyHostToHost);
+		cudaMemcpy(sparse_index, tempi, pos * sizeof(long), cudaMemcpyHostToHost);
+		free(tempv);
+		free(tempi);
 		cudaFree(dense_stochastic);
-	}
+		}
 };
 
 bool ReadInputFile(std::string input_name)
