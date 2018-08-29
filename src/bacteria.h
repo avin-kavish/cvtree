@@ -1,7 +1,5 @@
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <math.h>
+#ifndef BACTERIA
+#define BACTERIA
 
 int number_bacteria;
 char **bacteria_name;
@@ -74,10 +72,11 @@ class Bacteria
 	long count;
 	double *tv;
 	long *ti;
+	std::string name;
 
-	Bacteria(char *filename)
+	Bacteria(std::string filename)
 	{
-		FILE *bacteria_file = fopen(filename, "r");
+		FILE *bacteria_file = fopen(("data/" + filename).c_str(), "r");
 		InitVectors();
 
 		char ch, chk;
@@ -94,7 +93,10 @@ class Bacteria
 			else if (ch != '\n' && ch != '\r')
 				cont_buffer(ch);
 		}
+		fclose(bacteria_file);
+    }
 
+    void GenerateSparseStochastic() {
 		long total_plus_complement = total + complement;
 		double total_div_2 = total * 0.5;
 		int i_mod_aa_number = 0;
@@ -164,109 +166,27 @@ class Bacteria
 			}
 		}
 		delete t;
-
-		fclose(bacteria_file);
 	}
 };
 
-bool ReadInputFile(char *input_name)
+bool ReadInputFile(std::string input_name)
 {
-	if (FILE *input_file = fopen(input_name, "r"))
+	if (FILE *input_file = fopen(input_name.c_str(), "r"))
 	{
 		fscanf(input_file, "%d", &number_bacteria);
 		bacteria_name = new char *[number_bacteria];
 
 		for (long i = 0; i < number_bacteria; i++)
 		{
-			bacteria_name[i] = new char[25];
-			strcat(bacteria_name[i], "data/");
-			fscanf(input_file, "%s", bacteria_name[i] + 5);
+			bacteria_name[i] = new char[20];
+			fscanf(input_file, "%s", bacteria_name[i]);
 			strcat(bacteria_name[i], ".faa");
 		}
 		fclose(input_file);
 		return true;
 	}
 	else
-	{
 		return false;
-	}
 }
 
-double CompareBacteria(Bacteria *b1, Bacteria *b2)
-{
-	double correlation = 0;
-	double vector_len1 = 0;
-	double vector_len2 = 0;
-	long p1 = 0;
-	long p2 = 0;
-	while (p1 < b1->count && p2 < b2->count)
-	{
-		long n1 = b1->ti[p1];
-		long n2 = b2->ti[p2];
-		if (n1 < n2)
-		{
-			double t1 = b1->tv[p1];
-			vector_len1 += (t1 * t1);
-			p1++;
-		}
-		else if (n2 < n1)
-		{
-			double t2 = b2->tv[p2];
-			p2++;
-			vector_len2 += (t2 * t2);
-		}
-		else
-		{
-			double t1 = b1->tv[p1++];
-			double t2 = b2->tv[p2++];
-			vector_len1 += (t1 * t1);
-			vector_len2 += (t2 * t2);
-			correlation += t1 * t2;
-		}
-	}
-	while (p1 < b1->count)
-	{
-		long n1 = b1->ti[p1];
-		double t1 = b1->tv[p1++];
-		vector_len1 += (t1 * t1);
-	}
-	while (p2 < b2->count)
-	{
-		long n2 = b2->ti[p2];
-		double t2 = b2->tv[p2++];
-		vector_len2 += (t2 * t2);
-	}
-
-	return correlation / (sqrt(vector_len1) * sqrt(vector_len2));
-}
-
-void CompareAllBacteria()
-{
-	Bacteria **b = new Bacteria *[number_bacteria];
-	for (int i = 0; i < number_bacteria; i++)
-	{
-		printf("load %d of %d\n", i + 1, number_bacteria);
-		b[i] = new Bacteria(bacteria_name[i]);
-	}
-
-	for (int i = 0; i < number_bacteria - 1; i++)
-		for (int j = i + 1; j < number_bacteria; j++)
-		{
-			printf("%2d %2d -> ", i, j);
-			double correlation = CompareBacteria(b[i], b[j]);
-			printf("%.20lf\n", correlation);
-		}
-}
-
-int main(int argc, char *argv[])
-{
-	time_t t1 = time(NULL);
-
-	Init();
-	ReadInputFile((char *)"list.txt");
-	CompareAllBacteria();
-
-	time_t t2 = time(NULL);
-	printf("time elapsed: %ld seconds\n", t2 - t1);
-	return 0;
-}
+#endif
