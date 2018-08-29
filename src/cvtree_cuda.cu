@@ -6,7 +6,8 @@
 #include <atomic>
 #include "bacteria_cuda.h"
 
-int MAX_CONCURRENT_LOADS = 5;
+#define MAX_CONCURRENT_LOADS 4
+
 std::atomic<int> current_loads;
 
 struct Compare {
@@ -28,7 +29,7 @@ int main(int argc, char *argv[])
 
 	Init();
 	ReadInputFile("data/list.txt");
-  number_bacteria = 10;
+  number_bacteria = 41;
   current_loads = 0;
   std::thread threads[number_bacteria];
   Bacteria** bacteria;
@@ -45,9 +46,8 @@ int main(int argc, char *argv[])
       fi++;
     }
   }
-  for (int fi = 0; fi < number_bacteria; fi++){
+  for (int fi = 0; fi < number_bacteria; fi++)
     threads[fi].join(); threads[fi].~thread();    // We are not re-using threads for now
-  }
 
 
   int count = 0;
@@ -60,13 +60,13 @@ int main(int argc, char *argv[])
   int pos = 0;
   std::deque<std::thread> compare_threads;
   for (int i = 0; i < number_bacteria - 1; i++)
-    for (int j = i + 1; j < number_bacteria; j++){
+    for (int j = i + 1; j < number_bacteria; j++) {
       Compare c;
       c.b1 = bacteria[i];
       c.b2 = bacteria[j];
       c.result = &correlation[pos++];
       compare_threads.push_back(std::thread(CompareBacteria, c));
-      while(compare_threads.size() > 10)
+      while(compare_threads.size() > 5)
       { 
         std::thread& thread = compare_threads.front();
         thread.join(); thread.~thread();
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
       }
     }
 
-    while(compare_threads.size() > 0){
+    while(compare_threads.size() > 0) {
       std::thread& thread = compare_threads.front();
       thread.join(); thread.~thread();
       compare_threads.pop_front();;
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
   pos = 0;
   for (int i = 0; i < number_bacteria - 1; i++)
     for (int j = i + 1; j < number_bacteria; j++) {
-      printf("%2d %2d --> %.20lf\n", i, j, correlation[pos++]);
+      printf("%02d %02d -> %.20lf\n", i, j, correlation[pos++]);
     }
   printf("\n");
   
@@ -99,9 +99,9 @@ int main(int argc, char *argv[])
 void ProcessBacteria(Bacteria* b){
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  // Copy memory
   cudaMallocManaged(&b->dense_stochastic, M * sizeof(double));
-
+  
+  // Copy memory
   cudaStreamAttachMemAsync(stream, b->vector);
   cudaStreamAttachMemAsync(stream, b->second);
   cudaStreamAttachMemAsync(stream, b->dense_stochastic);
@@ -146,14 +146,10 @@ void CompareBacteria(Compare c)
 		else if (n2 < n1)
 			p2++;
 		else
-		{
-			double t1 = b1->sparse_vector[p1++];
-			double t2 = b2->sparse_vector[p2++];
-			correlation += t1 * t2;
-		}
+			correlation += b1->sparse_vector[p1++] * b2->sparse_vector[p2++];
 	}
 
-	*c.result = correlation / (sqrt(b1->vector_len_sqrt) * sqrt(b1->vector_len_sqrt));
+	*c.result = correlation / (b1->vector_len_sqrt * b2->vector_len_sqrt);
 }
 
 __global__ void _cuda_stochastic_precompute(long N, long M1, long* vector, long* second, long* one_l, long total, long complement, long total_l,
@@ -166,7 +162,7 @@ __global__ void _cuda_stochastic_precompute(long N, long M1, long* vector, long*
     double p2 = (double) one_l[i % AA_NUMBER] / total_l;
     double p3 = (double)second[i % M1] / (total + complement);
     double p4 = (double) one_l[i / M1] / total_l;
-    double stochastic = ( p1 * p2 + p3 * p4 ) * (total / 2);
+    double stochastic = ( p1 * p2 + p3 * p4 ) * total / 2;
     
     if (stochastic > EPSILON)
       dense_stochastic[i] = (vector[i] - stochastic) / stochastic;
