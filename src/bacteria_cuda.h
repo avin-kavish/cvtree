@@ -29,7 +29,7 @@ class Bacteria
   private:
 	long indexs;
 	
-	void Inisparse_vectorectors()
+	void InitVectors()
 	{
 		cudaMallocManaged(&vector, M * sizeof(long));
 		cudaMallocManaged(&second, M1 * sizeof(long));
@@ -81,13 +81,14 @@ class Bacteria
 	long complement;
 	double vector_len;
 	double vector_len_sqrt;
+	bool processed;
 	std::string name;
 
 	Bacteria(std::string filename)
 	{
 		name = filename;
 		FILE *bacteria_file = fopen(("data/" + filename).c_str(), "r");
-		Inisparse_vectorectors();
+		InitVectors();
 
 		char ch, chk;
 		while ((ch = fgetc(bacteria_file)) != EOF)
@@ -123,13 +124,15 @@ class Bacteria
 		}
 		count = pos;
 		vector_len_sqrt = sqrt(vector_len);
+		cudaFree(dense_stochastic);
 		cudaMallocManaged(&sparse_vector, pos * sizeof(double));
 		cudaMallocManaged(&sparse_index, pos * sizeof(long));
 		cudaMemcpy(sparse_vector, tempv, pos * sizeof(double), cudaMemcpyHostToHost);
 		cudaMemcpy(sparse_index, tempi, pos * sizeof(long), cudaMemcpyHostToHost);
+		// memcpy(sparse_vector, tempv, pos * sizeof(double));
+		// memcpy(sparse_index, tempi, pos * sizeof(long));
 		free(tempv);
 		free(tempi);
-		cudaFree(dense_stochastic);
 		}
 };
 
