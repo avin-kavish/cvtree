@@ -4,11 +4,15 @@
 #include <thread>
 #include <deque>
 #include <atomic>
+#include <thrust/scan.h>
+
+
 #include "bacteria_cuda.h"
 
-#define MAX_CONCURRENT_LOADS 4
+#define MAX_CONCURRENT_LOADS 2
 
 std::atomic<int> current_loads;
+bool* compared;
 double *correlation;
 int block_size;
 int block_count;
@@ -19,14 +23,33 @@ struct Compare {
   double* result;
 };
 
+struct not_zero
+{
+  __host__ __device__
+  bool operator()(double &x)
+  {
+    return x != 0;
+  }
+};
+
+template <typename T>
+struct square
+{
+    __host__ __device__
+        T operator()(const T& x) const { 
+            return x * x;
+        }
+};
+
 __global__
 void _cuda_stochastic_precompute(long N, long M1, long* vector, long* second, long* one_l, long total, long complement, long total_l,
   double* dense_stochastic);
+__global__ void _cuda_sparse_block_count(long N, double* dense, int* blockCount);
+__global__ void _cuda_parallel_sparse(long N, double* dense, double* sparse_vector, long* sparse_index, int* count);
 void ProcessBacteria(Bacteria* b);
 void CompareBacteria(Compare c);
 void MultiThreadedCPUCompare(Bacteria** b);
 void PrintCorrelation();
-
 
 int main(int argc, char *argv[])
 {
@@ -35,35 +58,49 @@ int main(int argc, char *argv[])
 	Init();
 	ReadInputFile("data/list.txt");
   number_bacteria = 41;
-  current_loads = 0;
-  std::thread threads[number_bacteria];
-  Bacteria** bacteria;
-  cudaMallocManaged(&bacteria, number_bacteria * sizeof(Bacteria*));
-    
-  for (int fi = 0; fi < number_bacteria;) {
-    if(current_loads < MAX_CONCURRENT_LOADS) {
-      cudaMallocManaged(&bacteria[fi], sizeof(bacteria));
-      bacteria[fi] = new(bacteria[fi]) Bacteria(bacteria_name[fi]);
-      std::cout << "Loaded " << fi + 1 << " of " << number_bacteria << std::endl;
 
-      current_loads++;
-      threads[fi] = std::thread(ProcessBacteria, bacteria[fi]);
-      fi++;
-    }
-  }
-  for (int fi = 0; fi < number_bacteria; fi++){
-    threads[fi].join(); threads[fi].~thread();    // We are not re-using threads for now
-  }
+  cudaOccupancyMaxPotentialBlockSize(&block_count, &block_size, _cuda_stochastic_precompute);
+  std::cout  << "Launching " 
+        << block_count
+        << " blocks with "
+        << block_size
+        << " threads per block" 
+        << std::endl;
 
+  // nCr value, no. of unique comparisons
   int count = 0;
   for (int i = 0; i < number_bacteria - 1; i++)
     for (int j = i + 1; j < number_bacteria; j++)
       count++;
 
+  current_loads = 0;
+  std::thread threads[number_bacteria];
+  Bacteria** bacteria;
+  cudaMallocManaged(&bacteria, number_bacteria * sizeof(Bacteria*));
+    
   correlation = new double[count];
+   
+  for (int fi = 0; fi < number_bacteria;) {
+    if(current_loads < MAX_CONCURRENT_LOADS) {
+      cudaMallocManaged(&bacteria[fi], sizeof(bacteria));
+      bacteria[fi] = new(bacteria[fi]) Bacteria(bacteria_name[fi]);
+      std::cout << "File read " << fi + 1 << " of " << number_bacteria << std::endl;
+      
+      current_loads++;
+      threads[fi] = std::thread(ProcessBacteria, bacteria[fi]);
+      fi++;
+    }
+  }
 
-  MultiThreadedCPUCompare();
+  for (int fi = 0; fi < number_bacteria; fi++){
+    threads[fi].join(); threads[fi].~thread();    // We are not re-using threads for now
+  }
+  
+  current_loads = 0;
+  MultiThreadedCPUCompare(bacteria); 
   PrintCorrelation();
+  printf("\n");
+  
 
 	auto t2 = std::chrono::high_resolution_clock::now();
 	std::cout	<< "Total time elapsed: "
@@ -77,6 +114,9 @@ void ProcessBacteria(Bacteria* b){
   cudaStream_t stream;
   cudaStreamCreate(&stream);
   cudaMallocManaged(&b->dense_stochastic, M * sizeof(double));
+  int* count;
+  cudaMalloc(&count, sizeof(int));
+  cudaMemsetAsync(count, 0, sizeof(int), stream);
   
   // Copy memory
   cudaStreamAttachMemAsync(stream, b->vector);
@@ -91,19 +131,32 @@ void ProcessBacteria(Bacteria* b){
   cudaMemPrefetchAsync(b->one_l, AA_NUMBER * sizeof(long), 0, stream);
 
   // Launch
-  _cuda_stochastic_precompute<<<5, 1024, 0, stream>>>(M, M1, b->vector, b->second, b->one_l, 
+  _cuda_stochastic_precompute<<<block_count, block_size, 0, stream>>>(M, M1, b->vector, b->second, b->one_l, 
   b->total, b->complement, b->total_l, b->dense_stochastic);
   
-  // Fetch mem
-  cudaMemPrefetchAsync(b->dense_stochastic, M * sizeof(double), cudaCpuDeviceId, stream);
+  b->count = thrust::count_if(thrust::cuda::par.on(stream), b->dense_stochastic, b->dense_stochastic + M, not_zero());
+  
+  cudaMallocManaged(&b->sparse_vector, b->count * sizeof(double));
+  cudaMallocManaged(&b->sparse_index, b->count * sizeof(long));
+  
+  cudaStreamAttachMemAsync(stream, b->sparse_vector);
+  cudaStreamAttachMemAsync(stream, b->sparse_index);
+
+  _cuda_parallel_sparse<<<block_count, block_size, 0, stream>>>(M, b->dense_stochastic, b->sparse_vector, b->sparse_index, count);
+  
+  cudaFree(b->dense_stochastic);
+  cudaFree(count);
   cudaFree(b->vector);
   cudaFree(b->second);
   
-  // This call will block the thread --> cudaStreamSynchronize(stream);
-  // Instead we query stream status and yield to OS thread scheduler
-  while(cudaStreamQuery(stream) != 0) std::this_thread::yield();
+  thrust::sort_by_key(thrust::cuda::par.on(stream), b->sparse_index, b->sparse_index + b->count, b->sparse_vector);
+  b->vector_len = thrust::transform_reduce(thrust::cuda::par.on(stream), b->sparse_vector, b->sparse_vector + b->count, 
+  square<double>(), 0, thrust::plus<double>());
   
-  b->DenseToSparse();
+  b->vector_len_sqrt = sqrt(b->vector_len);
+  
+  cudaStreamSynchronize(stream);
+  b->processed = true;
   current_loads--;
 }
 
@@ -129,25 +182,52 @@ void CompareBacteria(Compare c)
 	*c.result = correlation / (b1->vector_len_sqrt * b2->vector_len_sqrt);
 }
 
-__global__ void _cuda_stochastic_precompute(long N, long M1, long* vector, long* second, long* one_l, long total, long complement, long total_l,
-  double* dense_stochastic) {
+__global__ void _cuda_parallel_sparse(long N, double* dense, double* sparse_vector, long* sparse_index, int* count) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
+  while(idx < N) {
+    if (dense[idx] != 0) {
+      int i = atomicAdd(count, 1);
+      sparse_vector[i] = dense[idx];
+      sparse_index[i] = idx;
+    }
+    
+    idx += blockDim.x * gridDim.x;
+  }
+
+}
+
+__global__ void _cuda_sparse_block_count(long N, double* dense, int* blockCount){
   int i = blockIdx.x * blockDim.x + threadIdx.x;
 
+  if (i < N) {
+    bool test = dense[i] != 0;
+    int count = __syncthreads_count(test);
+
+    if (threadIdx.x == 0)
+      blockCount[blockIdx.x] = count;
+  }
+}
+
+__global__ void _cuda_stochastic_precompute(long N, long M1, long* vector, long* second, 
+long* one_l, long total, long complement, long total_l, double* dense_stochastic) {
+
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  long total_p_complement =  total + complement;
   while(i < N) {
-    double p1 = (double)second[i / AA_NUMBER] / (total + complement);
+    double p1 = (double)second[i / AA_NUMBER] / total_p_complement;
     double p2 = (double) one_l[i % AA_NUMBER] / total_l;
-    double p3 = (double)second[i % M1] / (total + complement);
+    double p3 = (double)second[i % M1] / total_p_complement;
     double p4 = (double) one_l[i / M1] / total_l;
     double stochastic = ( p1 * p2 + p3 * p4 ) * total / 2;
     
     if (stochastic > EPSILON)
       dense_stochastic[i] = (vector[i] - stochastic) / stochastic;
 
-
     i += blockDim.x * gridDim.x;
   }
 }
+
 
 void MultiThreadedCPUCompare(Bacteria** bacteria) {
   int pos = 0;

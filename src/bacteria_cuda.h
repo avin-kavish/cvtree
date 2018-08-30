@@ -112,7 +112,7 @@ class Bacteria
 		long* tempi = (long*) malloc(M * sizeof(long));
 
 		int pos = 0;
-		for (long i = 0; i < M; i++)
+		for (int i = 0; i < M; i++)
 		{
 			if (dense_stochastic[i] != 0)
 			{
