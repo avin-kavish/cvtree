@@ -2,9 +2,8 @@
 #include <chrono>
 #include <string>
 #include <thread>
-#include <vector>
+#include <deque>
 #include <atomic>
-#include <future>
 #include "bacteria_cuda.h"
 
 #define MAX_CONCURRENT_LOADS 4
@@ -37,7 +36,7 @@ int main(int argc, char *argv[])
 	ReadInputFile("data/list.txt");
   number_bacteria = 41;
   current_loads = 0;
-  std::future<void> threads[number_bacteria];
+  std::thread threads[number_bacteria];
   Bacteria** bacteria;
   cudaMallocManaged(&bacteria, number_bacteria * sizeof(Bacteria*));
     
@@ -48,12 +47,12 @@ int main(int argc, char *argv[])
       std::cout << "Loaded " << fi + 1 << " of " << number_bacteria << std::endl;
 
       current_loads++;
-      threads[fi] = std::async(std::launch::async, ProcessBacteria, bacteria[fi]);
+      threads[fi] = std::thread(ProcessBacteria, bacteria[fi]);
       fi++;
     }
   }
   for (int fi = 0; fi < number_bacteria; fi++){
-    threads[fi].get();    
+    threads[fi].join(); threads[fi].~thread();    // We are not re-using threads for now
   }
 
   int count = 0;
@@ -92,7 +91,7 @@ void ProcessBacteria(Bacteria* b){
   cudaMemPrefetchAsync(b->one_l, AA_NUMBER * sizeof(long), 0, stream);
 
   // Launch
-  _cuda_stochastic_precompute<<<10, 768, 0, stream>>>(M, M1, b->vector, b->second, b->one_l, 
+  _cuda_stochastic_precompute<<<5, 1024, 0, stream>>>(M, M1, b->vector, b->second, b->one_l, 
   b->total, b->complement, b->total_l, b->dense_stochastic);
   
   // Fetch mem
@@ -107,7 +106,7 @@ void ProcessBacteria(Bacteria* b){
   auto t1 = std::chrono::high_resolution_clock::now();
   b->DenseToSparse();
   auto t2 = std::chrono::high_resolution_clock::now();
-	std::cout	<< "steam-compact: "
+	std::cout	<< "d-s: "
 				    << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
 				    << "ms" << std::endl;
   current_loads--;
@@ -156,21 +155,27 @@ __global__ void _cuda_stochastic_precompute(long N, long M1, long* vector, long*
 }
 
 void MultiThreadedCPUCompare(Bacteria** bacteria) {
-  std::cout << "Please wait. Performing batch comparison..." << std::endl;
   int pos = 0;
-  std::vector<std::future<void>> compare_threads;
+  std::deque<std::thread> compare_threads;
   for (int i = 0; i < number_bacteria - 1; i++)
   for (int j = i + 1; j < number_bacteria; j++) {
     Compare c;
     c.b1 = bacteria[i];
     c.b2 = bacteria[j];
     c.result = &correlation[pos++];
-    compare_threads.push_back(std::async(std::launch::async, CompareBacteria, c));
+    compare_threads.push_back(std::thread(CompareBacteria, c));
+    while(compare_threads.size() > 5)
+    { 
+      std::thread& thread = compare_threads.front();
+      thread.join(); thread.~thread();
+      compare_threads.pop_front();
+    }
   }
 
   while(compare_threads.size() > 0) {
-    compare_threads.back().get();
-    compare_threads.pop_back();;
+    std::thread& thread = compare_threads.front();
+    thread.join(); thread.~thread();
+    compare_threads.pop_front();;
   }
 }
 

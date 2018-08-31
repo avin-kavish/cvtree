@@ -5,9 +5,10 @@
 #include <vector>
 #include <atomic>
 #include <future>
+#include <thrust/sort.h>
 #include "bacteria_cuda.h"
 
-#define MAX_CONCURRENT_LOADS 4
+#define MAX_CONCURRENT_LOADS 1
 
 std::atomic<int> current_loads;
 double *correlation;
@@ -23,8 +24,12 @@ struct Compare {
 __global__
 void _cuda_stochastic_precompute(long N, long M1, long* vector, long* second, long* one_l, long total, long complement, long total_l,
   double* dense_stochastic);
+__global__
+void _cuda_sparse_compact(long N, double* dense, double* sparse, long* index, int * count, double* vector_len);
+
 void ProcessBacteria(Bacteria* b);
 void CompareBacteria(Compare c);
+
 void MultiThreadedCPUCompare(Bacteria** b);
 void PrintCorrelation();
 
@@ -35,7 +40,7 @@ int main(int argc, char *argv[])
 
 	Init();
 	ReadInputFile("data/list.txt");
-  number_bacteria = 41;
+  //number_bacteria = 10;
   current_loads = 0;
   std::future<void> threads[number_bacteria];
   Bacteria** bacteria;
@@ -49,12 +54,13 @@ int main(int argc, char *argv[])
 
       current_loads++;
       threads[fi] = std::async(std::launch::async, ProcessBacteria, bacteria[fi]);
+      //ProcessBacteria(bacteria[fi]);
       fi++;
     }
   }
-  for (int fi = 0; fi < number_bacteria; fi++){
-    threads[fi].get();    
-  }
+  // for (int fi = 0; fi < number_bacteria; fi++){
+  //   threads[fi].get();    
+  // }
 
   int count = 0;
   for (int i = 0; i < number_bacteria - 1; i++)
@@ -78,38 +84,66 @@ void ProcessBacteria(Bacteria* b){
   cudaStream_t stream;
   cudaStreamCreate(&stream);
   cudaMallocManaged(&b->dense_stochastic, M * sizeof(double));
+  double* d_sparse;
+  long* d_index;
+  int* d_count;
+  double* d_vectorlen;
+  cudaMalloc(&d_vectorlen, sizeof(double));
+  cudaMemsetAsync(d_vectorlen, 0, sizeof(double), stream);
+  
   
   // Copy memory
   cudaStreamAttachMemAsync(stream, b->vector);
   cudaStreamAttachMemAsync(stream, b->second);
   cudaStreamAttachMemAsync(stream, b->dense_stochastic);
   cudaStreamAttachMemAsync(stream, b->one_l);
-
+  
   cudaMemPrefetchAsync(b->vector, M * sizeof(long), 0, stream);
   cudaMemPrefetchAsync(b->second, M1 * sizeof(long), 0, stream);
   cudaMemPrefetchAsync(b->dense_stochastic, M * sizeof(double), 0, stream);
   cudaMemsetAsync(b->dense_stochastic, 0, M * sizeof(double), stream);
   cudaMemPrefetchAsync(b->one_l, AA_NUMBER * sizeof(long), 0, stream);
-
+  
   // Launch
   _cuda_stochastic_precompute<<<10, 768, 0, stream>>>(M, M1, b->vector, b->second, b->one_l, 
-  b->total, b->complement, b->total_l, b->dense_stochastic);
-  
+    b->total, b->complement, b->total_l, b->dense_stochastic);
+    
+    cudaMalloc(&d_sparse, M * sizeof(double));
+    cudaMalloc(&d_index, M * sizeof(long));
+    cudaMalloc(&d_count, sizeof(int));
+    cudaMemsetAsync(d_count, 0, sizeof(int), stream);
+
+    _cuda_sparse_compact<<<10, 1024, 0, stream>>>(M, b->dense_stochastic, d_sparse, d_index, d_count, d_vectorlen);
   // Fetch mem
-  cudaMemPrefetchAsync(b->dense_stochastic, M * sizeof(double), cudaCpuDeviceId, stream);
+  //cudaMemPrefetchAsync(b->dense_stochastic, M * sizeof(double), cudaCpuDeviceId, stream);
+  cudaMemcpyAsync(&b->count, d_count, sizeof(int), cudaMemcpyDeviceToHost, stream);
+  cudaMemcpyAsync(&b->vector_len, d_vectorlen, sizeof(double), cudaMemcpyDeviceToHost, stream);
+  cudaStreamSynchronize(stream);
+  b->sparse_vector = (double*) malloc(b->count * sizeof(double));
+  b->sparse_index = (long*) malloc(b->count * sizeof(long));
+  b->vector_len_sqrt = sqrt(b->vector_len);
+  thrust::sort_by_key(thrust::cuda::par.on(stream), d_index, d_index + b->count - 1, d_sparse);
+  cudaMemcpyAsync(b->sparse_vector, d_sparse, b->count * sizeof(double), cudaMemcpyDeviceToHost, stream);
+  cudaMemcpyAsync(b->sparse_index, d_index, b->count * sizeof(double), cudaMemcpyDeviceToHost, stream);
+  
+  std::cout << b->count << std::endl;
+  cudaFree(d_sparse);
+  cudaFree(d_index);
+  cudaFree(b->dense_stochastic);
   cudaFree(b->vector);
   cudaFree(b->second);
   
-  // This call will block the thread --> cudaStreamSynchronize(stream);
+  // This call will block the thread --> 
+  cudaStreamSynchronize(stream);
   // Instead we query stream status and yield to OS thread scheduler
-  while(cudaStreamQuery(stream) != 0) std::this_thread::yield();
+  // while(cudaStreamQuery(stream) != 0) std::this_thread::yield();
   
-  auto t1 = std::chrono::high_resolution_clock::now();
-  b->DenseToSparse();
-  auto t2 = std::chrono::high_resolution_clock::now();
-	std::cout	<< "steam-compact: "
-				    << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
-				    << "ms" << std::endl;
+  // auto t1 = std::chrono::high_resolution_clock::now();
+  //b->DenseToSparse();
+  // auto t2 = std::chrono::high_resolution_clock::now();
+	// std::cout	<< "d-s: "
+	// 			    << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
+	// 			    << "ms" << std::endl;
   current_loads--;
 }
 
@@ -154,6 +188,23 @@ __global__ void _cuda_stochastic_precompute(long N, long M1, long* vector, long*
     i += blockDim.x * gridDim.x;
   }
 }
+
+__global__
+void _cuda_sparse_compact(long N, double* dense, double* sparse, long* index, int* count, double* vector_len){
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  while(i < N) {
+  
+    if (dense[i] != 0){
+      int pos = atomicAdd(count, 1);
+      atomicAdd(vector_len, dense[i] * dense[i]);
+      sparse[pos] = dense[i];
+      index[pos] = i;
+    }
+    i += blockDim.x * gridDim.x;
+  }
+}
+
 
 void MultiThreadedCPUCompare(Bacteria** bacteria) {
   std::cout << "Please wait. Performing batch comparison..." << std::endl;

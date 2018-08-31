@@ -29,6 +29,7 @@ class Bacteria
 	long total;
 	long total_l;
 	long complement;
+	double* t;
 
 	void InitVectors()
 	{
@@ -96,7 +97,7 @@ class Bacteria
 		fclose(bacteria_file);
     }
 
-    void GenerateSparseStochastic() {
+    void GenerateStochastic() {
 		long total_plus_complement = total + complement;
 		double total_div_2 = total * 0.5;
 		int i_mod_aa_number = 0;
@@ -113,7 +114,7 @@ class Bacteria
 			second_div_total[i] = (double)second[i] / total_plus_complement;
 
 		count = 0;
-		double *t = new double[M];
+		t = new double[M];
 
 		for (long i = 0; i < M; i++)
 		{
@@ -151,7 +152,9 @@ class Bacteria
 		delete second_div_total;
 		delete vector;
 		delete second;
+	}
 
+	void GenerateSparse() {
 		tv = new double[count];
 		ti = new long[count];
 

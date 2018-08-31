@@ -31,11 +31,23 @@ void CompareAllBacteria()
 	Bacteria **b = new Bacteria *[number_bacteria];
 	for (int i = 0; i < number_bacteria; i++)
 	{
-		printf("load %d of %d\n", i + 1, number_bacteria);
+		printf("load %d of %d\t", i + 1, number_bacteria);
+		auto t1 = std::chrono::high_resolution_clock::now();
 		b[i] = new Bacteria(bacteria_name[i]);
-		b[i]->GenerateSparseStochastic();
+		auto t2 = std::chrono::high_resolution_clock::now();
+		b[i]->GenerateStochastic();
+		auto t3 = std::chrono::high_resolution_clock::now();
+		b[i]->GenerateSparse();
+		auto t4 = std::chrono::high_resolution_clock::now();
+		
+		auto milli1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+		auto milli2 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
+		auto milli3 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
+
+		std::cout << "Load: " << milli1 <<  "ms \tstochastic compute: " << milli2 << "ms\tdense to sparse: " << milli3 << "ms" << std::endl;
 	}
 
+	auto t5 = std::chrono::high_resolution_clock::now();
 	for (int i = 0; i < number_bacteria - 1; i++)
 		for (int j = i + 1; j < number_bacteria; j++)
 		{
@@ -43,6 +55,7 @@ void CompareAllBacteria()
 			double correlation = CompareBacteria(b[i], b[j]);
 			printf("%.20lf\n", correlation);
 		}
+	auto t6 = std::chrono::high_resolution_clock::now();
 }
 
 double CompareBacteria(Bacteria *b1, Bacteria *b2)

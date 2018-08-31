@@ -34,6 +34,9 @@ class Bacteria
 		cudaMallocManaged(&vector, M * sizeof(long));
 		cudaMallocManaged(&second, M1 * sizeof(long));
 		cudaMallocManaged(&one_l, AA_NUMBER * sizeof(long));
+		//cudaMemAdvise(vector, M * sizeof(long), cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
+		//cudaMemAdvise(second, M1 * sizeof(long), cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
+		//cudaMemAdvise(one_l, AA_NUMBER * sizeof(long), cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
 		memset(vector, 0, M * sizeof(long));
 		memset(second, 0, M1 * sizeof(long));
 		memset(one_l, 0, AA_NUMBER * sizeof(long));
@@ -108,31 +111,40 @@ class Bacteria
     }
 
     void DenseToSparse() {
-		double* tempv = (double*) malloc(M * sizeof(double));
-		long* tempi = (long*) malloc(M * sizeof(long));
+		sparse_vector = (double*) malloc(M * sizeof(double));
+		sparse_index = (long*) malloc(M * sizeof(long));
 
 		int pos = 0;
 		for (int i = 0; i < M; i++)
 		{
 			if (dense_stochastic[i] != 0)
 			{
-				tempv[pos] = dense_stochastic[i];
-				tempi[pos] = i;
-				vector_len += tempv[pos] * tempv[pos];
+				sparse_vector[pos] = dense_stochastic[i];
+				sparse_index[pos] = i;
+				vector_len += dense_stochastic[i] * dense_stochastic[i];
 				pos++;
 			}
 		}
 		count = pos;
 		vector_len_sqrt = sqrt(vector_len);
 		cudaFree(dense_stochastic);
-		cudaMallocManaged(&sparse_vector, pos * sizeof(double));
-		cudaMallocManaged(&sparse_index, pos * sizeof(long));
-		cudaMemcpy(sparse_vector, tempv, pos * sizeof(double), cudaMemcpyHostToHost);
-		cudaMemcpy(sparse_index, tempi, pos * sizeof(long), cudaMemcpyHostToHost);
-		// memcpy(sparse_vector, tempv, pos * sizeof(double));
-		// memcpy(sparse_index, tempi, pos * sizeof(long));
-		free(tempv);
-		free(tempi);
+		// cudaMallocManaged(&sparse_vector, pos * sizeof(double));
+		// cudaMallocManaged(&sparse_index, pos * sizeof(long));
+		// cudaMemcpy(sparse_vector, tempv, pos * sizeof(double), cudaMemcpyHostToHost);
+		// cudaMemcpy(sparse_index, tempi, pos * sizeof(long), cudaMemcpyHostToHost);
+		// // memcpy(sparse_vector, tempv, pos * sizeof(double));
+		// // memcpy(sparse_index, tempi, pos * sizeof(long));
+		// free(tempv);
+		// free(tempi);
+
+		sparse_vector = (double*) realloc(sparse_vector, pos * sizeof(double));
+		sparse_index = (long*) realloc(sparse_index, pos * sizeof(long));
+
+		if(sparse_vector == NULL || sparse_index == NULL) {
+			std::cout << "Realloc failure" << std::endl;
+			exit(-1);
+
+		}
 		}
 };
 
