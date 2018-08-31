@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
   correlation = new double[count];
 
-  MultiThreadedCPUCompare();
+  MultiThreadedCPUCompare(bacteria);
   PrintCorrelation();
 
 	auto t2 = std::chrono::high_resolution_clock::now();
@@ -103,7 +103,12 @@ void ProcessBacteria(Bacteria* b){
   // Instead we query stream status and yield to OS thread scheduler
   while(cudaStreamQuery(stream) != 0) std::this_thread::yield();
   
+  auto t1 = std::chrono::high_resolution_clock::now();
   b->DenseToSparse();
+  auto t2 = std::chrono::high_resolution_clock::now();
+	std::cout	<< "d-s: "
+				    << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
+				    << "ms" << std::endl;
   current_loads--;
 }
 
