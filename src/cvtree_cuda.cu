@@ -31,6 +31,16 @@ void PrintCorrelation();
 
 int main(int argc, char *argv[])
 {
+  cudaDeviceProp prop;
+  cudaGetDeviceProperties(&prop, 0);
+
+  std::cout << prop.name 
+            << "\tSM Count: "
+            << prop.multiProcessorCount
+            << "\t Max threads: "
+            << prop.maxThreadsPerBlock
+            << std::endl;
+
 	auto t1 = std::chrono::high_resolution_clock::now();
 
 	Init();
@@ -107,9 +117,9 @@ void ProcessBacteria(Bacteria* b){
   auto t1 = std::chrono::high_resolution_clock::now();
   b->DenseToSparse();
   auto t2 = std::chrono::high_resolution_clock::now();
-	std::cout	<< "steam-compact: "
-				    << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
-				    << "ms" << std::endl;
+	// std::cout	<< "steam-compact: "
+	// 			    << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
+	// 			    << "ms" << std::endl;
   current_loads--;
 }
 
