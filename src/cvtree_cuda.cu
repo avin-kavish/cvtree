@@ -160,7 +160,6 @@ __global__ void _cuda_stochastic_precompute(long N, long M1, long* vector, long*
     if (stochastic > EPSILON)
       dense_stochastic[i] = (vector[i] - stochastic) / stochastic;
 
-
     i += blockDim.x * gridDim.x;
   }
 }

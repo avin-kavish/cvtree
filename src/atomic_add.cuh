@@ -1,5 +1,5 @@
 #if __CUDA_ARCH__ < 600
-__device__ double atomicAdd(double* address, double val)
+__device__ double atomicdAdd(double* address, double val)
 {
     unsigned long long int* address_as_ull =
                               (unsigned long long int*)address;

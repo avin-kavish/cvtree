@@ -6,7 +6,7 @@
 #include <atomic>
 #include <future>
 #include "bacteria_cuda.h"
-#include "atomic_add.h"
+#include "atomic_add.cuh"
 
 #define MAX_CONCURRENT_LOADS 4
 
@@ -92,7 +92,7 @@ void _cuda_compare_bacteria(long N, double *b1, double* b2, double *correlation)
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   
   while(i < N) {
-    atomicAdd(correlation, b1[i] * b2[i]);
+    atomicdAdd(correlation, b1[i] * b2[i]);
     i += blockDim.x * gridDim.x;
   }
 }
