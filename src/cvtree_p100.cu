@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include "bacteria_p100.h"
 
+#define WARP_SIZE 32
+
 #define MAX_CONCURRENT_LOADS 4
 
 int sm_count;
@@ -45,7 +47,7 @@ int main(int argc, char *argv[])
 
 	Init();
 	ReadInputFile("data/list.txt");
-  number_bacteria = 10;
+  number_bacteria = 20;
 
   Bacteria** bacteria = new Bacteria*[number_bacteria];
 
@@ -78,9 +80,15 @@ int main(int argc, char *argv[])
     for (int j = i + 1; j < number_bacteria; j++) {
       printf("%02d %02d -> %.20lf\n", i, j, correlation[i * number_bacteria + j]);
     }
-
-
   delete correlation;
+
+
+  auto t2 = std::chrono::high_resolution_clock::now();
+	std::cout	<< "Total time elapsed: "
+				    << std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count()
+				    << "s" << std::endl;
+
+	return 0;
 }
 
 
@@ -115,13 +123,36 @@ void ProcessBacteria(Bacteria* b) {
 
 __global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stochastic2, double* correlation) {
 
+  __shared__ int buffer[WARP_SIZE];
+  int lane = threadIdx.x % WARP_SIZE;
+  double temp;
+
   int i = blockIdx.x * blockDim.x + threadIdx.x;
 
 	while(i < N)
 	{
-    atomicAdd(correlation, stochastic1[i] * stochastic2[i]);
+    temp = stochastic1[i] * stochastic2[i];
+
+    for(int delta = WARP_SIZE/2; delta > 0; delta /= 2)
+         temp+= __shfl_xor_sync(-1, temp, delta);
+
+    if(lane == 0)
+        buffer[threadIdx.x / WARP_SIZE] = temp;
+
+    __syncthreads();
+
+    if(threadIdx.x < WARP_SIZE) 
+    {
+      temp = buffer[threadIdx.x];
+      for(int delta = WARP_SIZE / 2; delta > 0; delta /= 2) 
+        temp += __shfl_xor_sync(-1, temp, delta);
+    }
+
+    if(threadIdx.x == 0)
+      atomicAdd(correlation, temp);
 
     i += blockDim.x * gridDim.x;
+    __syncthreads();
 	}
 }
 
