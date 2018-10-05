@@ -17,7 +17,7 @@ int thread_count;
 
 __global__ void _cuda_stochastic_precompute(long N, long M1, long* vector, long* second, long* one_l, long total, long complement, long total_l,
   double* dense_stochastic, double* vector_len);
-__global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stochastic2, double vector_len1, double vector_len2, double* correlation);
+__global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stochastic2, double* vector_len1, double* vector_len2, double* correlation);
 void ProcessBacteria(Bacteria* b);
 
 
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
   for (int i = 0; i < number_bacteria - 1; i++)
     for (int j = i + 1; j < number_bacteria; j++) {
       _cuda_compare_bacteria<<<sm_count, thread_count>>>(M, bacteria[i]->dense_stochastic, 
-        bacteria[j]->dense_stochastic, *bacteria[i]->vector_len, *bacteria[j]->vector_len, &d_correlation[pos++]);
+        bacteria[j]->dense_stochastic, bacteria[i]->vector_len, bacteria[j]->vector_len, &d_correlation[pos++]);
       }
       
   cudaDeviceSynchronize();
@@ -132,7 +132,7 @@ void ProcessBacteria(Bacteria* b) {
   delete b->second;
 }
 
-__global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stochastic2, double vector_len1, double vector_len2, double* correlation) {
+__global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stochastic2, double* vector_len1, double* vector_len2, double* correlation) {
 
   __shared__ double buffer[WARP_SIZE];
   int lane = threadIdx.x % WARP_SIZE;
@@ -165,6 +165,12 @@ __global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stoc
     i += blockDim.x * gridDim.x;
     __syncthreads();
 	}
+
+  i = blockIdx.x * blockDim.x + threadIdx.x;
+  __syncthreads();
+
+  if (i == 0) 
+    *correlation = *correlation / ( sqrt(*vector_len1) * sqrt(*vector_len2) );
 }
 
 
