@@ -21,7 +21,7 @@ void ProcessBacteria(Bacteria* b);
 
 int main(int argc, char *argv[])
 {
-  int device_count, current_device;
+  int device_count, current_device = 0;
   cudaGetDeviceCount(&device_count);
   std::cout << "Devices found: " << device_count << std::endl;
 
@@ -96,6 +96,9 @@ void ProcessBacteria(Bacteria* b) {
   cudaFree(d_vector);
   cudaFree(d_second);
   cudaFree(d_one_l);
+
+  delete b->vector;
+  delete b->second;
 }
 
 __global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stochastic2, double* correlation) {
