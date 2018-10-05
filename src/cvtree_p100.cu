@@ -66,10 +66,21 @@ int main(int argc, char *argv[])
     for (int j = i + 1; j < number_bacteria; j++) {
       _cuda_compare_bacteria<<<sm_count, thread_count>>>(M, bacteria[i]->dense_stochastic, 
         bacteria[j]->dense_stochastic, &d_correlation[i * number_bacteria + j]);
+      }
+      
+  cudaDeviceSynchronize();
+  double* correlation = new double[number_bacteria * number_bacteria];
+  cudaMemcpy(correlation, d_correlation, number_bacteria * number_bacteria * sizeof(double), cudaMemcpyDeviceToHost);
+
+
+  int pos = 0;
+  for (int i = 0; i < number_bacteria - 1; i++)
+    for (int j = i + 1; j < number_bacteria; j++) {
+      printf("%02d %02d -> %.20lf\n", i, j, correlation[i * number_bacteria + j]);
     }
 
 
-
+  delete correlation;
 }
 
 
@@ -91,7 +102,7 @@ void ProcessBacteria(Bacteria* b) {
   cudaMemcpy(d_second, b->second, M1 * sizeof(long), cudaMemcpyHostToDevice);
   cudaMemcpy(d_one_l, b->one_l, AA_NUMBER * sizeof(long), cudaMemcpyHostToDevice);
 
-  _cuda_stochastic_precompute<<<10, 1024>>>(M, M1, d_vector, d_second, d_one_l, b->total, b->complement, b->total_l, b->dense_stochastic);
+  _cuda_stochastic_precompute<<<sm_count, thread_count>>>(M, M1, d_vector, d_second, d_one_l, b->total, b->complement, b->total_l, b->dense_stochastic);
   std::cout << cudaPeekAtLastError() << std::endl;
   cudaDeviceSynchronize();
   cudaFree(d_vector);
