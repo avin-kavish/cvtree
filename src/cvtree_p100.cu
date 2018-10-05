@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 
 	Init();
 	ReadInputFile("data/list.txt");
-  number_bacteria = 20;
+  number_bacteria = 30;
 
   Bacteria** bacteria = new Bacteria*[number_bacteria];
 
@@ -60,25 +60,31 @@ int main(int argc, char *argv[])
     ProcessBacteria(bacteria[fi]);
   }
 
+  int count = 0;
+  for (int i = 0; i < number_bacteria - 1; i++)
+    for (int j = i + 1; j < number_bacteria; j++) {
+      count++;  
+    }
+  
+  int pos = 0;
   // Compare on GPU
   double* d_correlation;
-  cudaMalloc(&d_correlation, number_bacteria * number_bacteria * sizeof(double));
-  cudaMemset(d_correlation, 0, number_bacteria * number_bacteria * sizeof(double));
+  cudaMalloc(&d_correlation, count * sizeof(double));
+  cudaMemset(d_correlation, 0, count * sizeof(double));
   for (int i = 0; i < number_bacteria - 1; i++)
     for (int j = i + 1; j < number_bacteria; j++) {
       _cuda_compare_bacteria<<<sm_count, thread_count>>>(M, bacteria[i]->dense_stochastic, 
-        bacteria[j]->dense_stochastic, &d_correlation[i * number_bacteria + j]);
+        bacteria[j]->dense_stochastic, &d_correlation[pos++]);
       }
       
   cudaDeviceSynchronize();
-  double* correlation = new double[number_bacteria * number_bacteria];
-  cudaMemcpy(correlation, d_correlation, number_bacteria * number_bacteria * sizeof(double), cudaMemcpyDeviceToHost);
+  double* correlation = new double[count];
+  cudaMemcpy(correlation, d_correlation, count * sizeof(double), cudaMemcpyDeviceToHost);
 
-
-  int pos = 0;
+  pos = 0;
   for (int i = 0; i < number_bacteria - 1; i++)
     for (int j = i + 1; j < number_bacteria; j++) {
-      printf("%02d %02d -> %.20lf\n", i, j, correlation[i * number_bacteria + j]);
+      printf("%02d %02d -> %.20lf\n", i, j, correlation[pos++]);
     }
   delete correlation;
 
@@ -123,7 +129,7 @@ void ProcessBacteria(Bacteria* b) {
 
 __global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stochastic2, double* correlation) {
 
-  __shared__ int buffer[WARP_SIZE];
+  __shared__ double buffer[WARP_SIZE];
   int lane = threadIdx.x % WARP_SIZE;
   double temp;
 
@@ -134,7 +140,7 @@ __global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stoc
     temp = stochastic1[i] * stochastic2[i];
 
     for(int delta = WARP_SIZE/2; delta > 0; delta /= 2)
-         temp+= __shfl_xor_sync(-1, temp, delta);
+         temp+= __shfl_down_sync(-1, temp, delta);
 
     if(lane == 0)
         buffer[threadIdx.x / WARP_SIZE] = temp;
@@ -145,7 +151,7 @@ __global__ void _cuda_compare_bacteria(long N, double* stochastic1, double* stoc
     {
       temp = buffer[threadIdx.x];
       for(int delta = WARP_SIZE / 2; delta > 0; delta /= 2) 
-        temp += __shfl_xor_sync(-1, temp, delta);
+        temp += __shfl_down_sync(-1, temp, delta);
     }
 
     if(threadIdx.x == 0)
