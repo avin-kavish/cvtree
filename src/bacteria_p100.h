@@ -77,7 +77,7 @@ class Bacteria
 	long total;
 	long total_l;
 	long complement;
-	double vector_len;
+	double* vector_len;
 	double vector_len_sqrt;
 	bool processed;
 	std::string name;
@@ -111,35 +111,6 @@ class Bacteria
 			throw std::invalid_argument(filename);
 
     }
-
-    void DenseToSparse() {
-		sparse_vector = (double*) malloc(M * sizeof(double));
-		sparse_index = (long*) malloc(M * sizeof(long));
-
-		int pos = 0;
-		for (int i = 0; i < M; i++)
-		{
-			if (dense_stochastic[i] != 0)
-			{
-				sparse_vector[pos] = dense_stochastic[i];
-				sparse_index[pos] = i;
-				vector_len += dense_stochastic[i] * dense_stochastic[i];
-				pos++;
-			}
-		}
-		count = pos;
-		vector_len_sqrt = sqrt(vector_len);
-		cudaFree(dense_stochastic);
-
-		sparse_vector = (double*) realloc(sparse_vector, pos * sizeof(double));
-		sparse_index = (long*) realloc(sparse_index, pos * sizeof(long));
-
-		if(sparse_vector == NULL || sparse_index == NULL) {
-			std::cout << "Realloc failure" << std::endl;
-			exit(-1);
-
-		}
-		}
 };
 
 bool ReadInputFile(std::string input_name)
