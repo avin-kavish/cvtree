@@ -21,16 +21,24 @@ void ProcessBacteria(Bacteria* b);
 
 int main(int argc, char *argv[])
 {
-  cudaDeviceProp prop;
-  cudaGetDeviceProperties(&prop, 0);
-  sm_count = prop.multiProcessorCount;
-  thread_count = prop.maxThreadsPerBlock;
-  std::cout << prop.name 
-            << "\tSM Count: "
-            << prop.multiProcessorCount
-            << "\t Max threads: "
-            << prop.maxThreadsPerBlock
-            << std::endl;
+  int device_count, current_device;
+  cudaGetDeviceCount(&device_count);
+  std::cout << "Devices found: " << device_count << std::endl;
+
+  while(current_device < device_count) {
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, current_device);
+    sm_count = prop.multiProcessorCount;
+    thread_count = prop.maxThreadsPerBlock;
+    std::cout << prop.name 
+    << "\tSM Count: "
+    << prop.multiProcessorCount
+    << "\t Max threads: "
+    << prop.maxThreadsPerBlock
+    << std::endl;
+
+    current_device++;
+  }
 
 	auto t1 = std::chrono::high_resolution_clock::now();
 
