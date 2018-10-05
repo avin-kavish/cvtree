@@ -21,7 +21,8 @@ void ProcessBacteria(Bacteria* b);
 
 int main(int argc, char *argv[])
 {
-  int device_count, current_device = 0;
+  int device_count = 0;
+  int current_device = 0;
   cudaGetDeviceCount(&device_count);
   std::cout << "Devices found: " << device_count << std::endl;
 
