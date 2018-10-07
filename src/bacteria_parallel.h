@@ -17,26 +17,24 @@ void Init()
 		M2 *= AA_NUMBER;
 	M1 = M2 * AA_NUMBER; // M1 = AA_NUMBER ^ (LEN-1);
 	M = M1 * AA_NUMBER;  // M  = AA_NUMBER ^ (LEN);
-
-	std::cout << "Init Constants\n"
-		 << "M1: " << M1
-		 << "\tM: " << M
-		 << std::endl;
 }
 
 class Bacteria
 {
   private:
+	long *vector;
+	long *second;
+	long one_l[AA_NUMBER];
 	long indexs;
-	
+	long total;
+	long total_l;
+	long complement;
+	double* t;
+
 	void InitVectors()
 	{
-		cudaMallocManaged(&vector, M * sizeof(long));
-		cudaMallocManaged(&second, M1 * sizeof(long));
-		cudaMallocManaged(&one_l, AA_NUMBER * sizeof(long));
-		//cudaMemAdvise(vector, M * sizeof(long), cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
-		//cudaMemAdvise(second, M1 * sizeof(long), cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
-		//cudaMemAdvise(one_l, AA_NUMBER * sizeof(long), cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
+		vector = new long[M];
+		second = new long[M1];
 		memset(vector, 0, M * sizeof(long));
 		memset(second, 0, M1 * sizeof(long));
 		memset(one_l, 0, AA_NUMBER * sizeof(long));
@@ -73,23 +71,12 @@ class Bacteria
 
   public:
 	long count;
-	double *sparse_vector;
-	long *sparse_index;
-	double* dense_stochastic;
-	long *vector;
-	long *second;
-	long* one_l;
-	long total;
-	long total_l;
-	long complement;
-	double vector_len;
-	double vector_len_sqrt;
-	bool processed;
+	double *tv;
+	long *ti;
 	std::string name;
 
 	Bacteria(std::string filename)
 	{
-		name = filename;
 		FILE *bacteria_file = fopen(("data/" + filename).c_str(), "r");
 		InitVectors();
 
@@ -110,42 +97,79 @@ class Bacteria
 		fclose(bacteria_file);
     }
 
-    void DenseToSparse() {
-		sparse_vector = (double*) malloc(M * sizeof(double));
-		sparse_index = (long*) malloc(M * sizeof(long));
+    void GenerateStochastic() {
+		long total_plus_complement = total + complement;
+		double total_div_2 = total * 0.5;
+		int i_mod_aa_number = 0;
+		int i_div_aa_number = 0;
+		long i_mod_M1 = 0;
+		long i_div_M1 = 0;
+
+		double one_l_div_total[AA_NUMBER];
+		for (int i = 0; i < AA_NUMBER; i++)
+			one_l_div_total[i] = (double)one_l[i] / total_l;
+
+		double *second_div_total = new double[M1];
+		for (int i = 0; i < M1; i++)
+			second_div_total[i] = (double)second[i] / total_plus_complement;
+
+		count = 0;
+		t = new double[M];
+
+		for (long i = 0; i < M; i++)
+		{
+			double p1 = second_div_total[i_div_aa_number];
+			double p2 = one_l_div_total[i_mod_aa_number];
+			double p3 = second_div_total[i_mod_M1];
+			double p4 = one_l_div_total[i_div_M1];
+			double stochastic = (p1 * p2 + p3 * p4) * total_div_2;
+
+			if (i_mod_aa_number == AA_NUMBER - 1)
+			{
+				i_mod_aa_number = 0;
+				i_div_aa_number++;
+			}
+			else
+				i_mod_aa_number++;
+
+			if (i_mod_M1 == M1 - 1)
+			{
+				i_mod_M1 = 0;
+				i_div_M1++;
+			}
+			else
+				i_mod_M1++;
+
+			if (stochastic > EPSILON)
+			{
+				t[i] = (vector[i] - stochastic) / stochastic;
+				count++;
+			}
+			else
+				t[i] = 0;
+		}
+
+		delete second_div_total;
+		delete vector;
+		delete second;
+	}
+
+	void GenerateSparse() {
+		tv = new double[count];
+		ti = new long[count];
 
 		int pos = 0;
-		for (int i = 0; i < M; i++)
+		for (long i = 0; i < M; i++)
 		{
-			if (dense_stochastic[i] != 0)
+			if (t[i] != 0)
 			{
-				sparse_vector[pos] = dense_stochastic[i];
-				sparse_index[pos] = i;
-				vector_len += dense_stochastic[i] * dense_stochastic[i];
+				tv[pos] = t[i];
+				ti[pos] = i;
 				pos++;
 			}
 		}
-		count = pos;
-		vector_len_sqrt = sqrt(vector_len);
-		cudaFree(dense_stochastic);
-		// cudaMallocManaged(&sparse_vector, pos * sizeof(double));
-		// cudaMallocManaged(&sparse_index, pos * sizeof(long));
-		// cudaMemcpy(sparse_vector, tempv, pos * sizeof(double), cudaMemcpyHostToHost);
-		// cudaMemcpy(sparse_index, tempi, pos * sizeof(long), cudaMemcpyHostToHost);
-		// // memcpy(sparse_vector, tempv, pos * sizeof(double));
-		// // memcpy(sparse_index, tempi, pos * sizeof(long));
-		// free(tempv);
-		// free(tempi);
-
-		sparse_vector = (double*) realloc(sparse_vector, pos * sizeof(double));
-		sparse_index = (long*) realloc(sparse_index, pos * sizeof(long));
-
-		if(sparse_vector == NULL || sparse_index == NULL) {
-			std::cout << "Realloc failure" << std::endl;
-			exit(-1);
-
-		}
-		}
+		delete t;
+	}
 };
 
 bool ReadInputFile(std::string input_name)

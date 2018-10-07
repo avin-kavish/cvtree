@@ -16,6 +16,7 @@ int main(int argc, char *argv[])
 
 	Init();
 	ReadInputFile("data/list.txt");
+	number_bacteria = 5;
 	CompareAllBacteria();
 
 	auto t2 = std::chrono::high_resolution_clock::now();
