@@ -10,7 +10,6 @@
 #include <iostream>
 #include <string>
 
-#define MAX_LAUNCHES 3
 
 void ProcessBacteria(Bacteria **b, char *bacteria_name);
 void CompareAllBacteria();
@@ -35,8 +34,11 @@ int main(int argc, char *argv[]) {
 }
 
 void CompareAllBacteria() {
-  std::queue<std::future<void>> loads;
+  int max_parallel = std::thread::hardware_concurrency() > 0 ? std::thread::hardware_concurrency() - 1 : 3;
+  printf("Loading bacteria on %d threads\n", max_parallel);
   
+  std::queue<std::future<void>> loads;
+
   auto t1 = std::chrono::high_resolution_clock::now();
   Bacteria **b = new Bacteria *[number_bacteria];
   for (int i = 0; i < number_bacteria; i++) {
@@ -44,7 +46,7 @@ void CompareAllBacteria() {
     loads.push(std::async(std::launch::async, ProcessBacteria, b + i,
                           bacteria_name[i]));
 
-    while (loads.size() > MAX_LAUNCHES) {
+    while (loads.size() > max_parallel){
       loads.front().get();
       loads.pop();
     }
