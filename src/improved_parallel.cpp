@@ -1,13 +1,16 @@
 #include <future>
 #include <math.h>
+#include <queue>
 #include <stdio.h>
 #include <string.h>
 #include <vector>
 
-#include "bacteria.h"
+#include "bacteria_parallel.h"
 #include <chrono>
 #include <iostream>
 #include <string>
+
+#define MAX_LAUNCHES 3
 
 void ProcessBacteria(Bacteria **b, char *bacteria_name);
 void CompareAllBacteria();
@@ -18,7 +21,7 @@ int main(int argc, char *argv[]) {
 
   Init();
   ReadInputFile("data/list.txt");
-  number_bacteria = 5;
+  number_bacteria = 10;
   CompareAllBacteria();
 
   auto t2 = std::chrono::high_resolution_clock::now();
@@ -32,16 +35,25 @@ int main(int argc, char *argv[]) {
 }
 
 void CompareAllBacteria() {
-  std::vector<std::future<void>> loads;
+  std::queue<std::future<void>> loads;
+  
   auto t1 = std::chrono::high_resolution_clock::now();
   Bacteria **b = new Bacteria *[number_bacteria];
   for (int i = 0; i < number_bacteria; i++) {
-    loads.push_back(std::async(std::launch::async, ProcessBacteria, b + i,
-                               bacteria_name[i]));
+    printf("Launching %i of %i\n", i, number_bacteria);
+    loads.push(std::async(std::launch::async, ProcessBacteria, b + i,
+                          bacteria_name[i]));
+
+    while (loads.size() > MAX_LAUNCHES) {
+      loads.front().get();
+      loads.pop();
+    }
   }
 
-  for (int i = 0; i < number_bacteria; i++)
-    loads[i].get();
+  while (loads.size() > 0) {
+    loads.front().get();
+    loads.pop();
+  }
 
   auto t2 = std::chrono::high_resolution_clock::now();
 
@@ -80,39 +92,22 @@ void ProcessBacteria(Bacteria **b, char *bacteria_name) {
 
 double CompareBacteria(Bacteria *b1, Bacteria *b2) {
   double correlation = 0;
-  double vector_len1 = 0;
-  double vector_len2 = 0;
   long p1 = 0;
   long p2 = 0;
+
   while (p1 < b1->count && p2 < b2->count) {
     long n1 = b1->ti[p1];
     long n2 = b2->ti[p2];
-    if (n1 < n2) {
-      double t1 = b1->tv[p1];
-      vector_len1 += (t1 * t1);
+    if (n1 < n2)
       p1++;
-    } else if (n2 < n1) {
-      double t2 = b2->tv[p2];
+    else if (n2 < n1)
       p2++;
-      vector_len2 += (t2 * t2);
-    } else {
+    else {
       double t1 = b1->tv[p1++];
       double t2 = b2->tv[p2++];
-      vector_len1 += (t1 * t1);
-      vector_len2 += (t2 * t2);
       correlation += t1 * t2;
     }
   }
-  while (p1 < b1->count) {
-    long n1 = b1->ti[p1];
-    double t1 = b1->tv[p1++];
-    vector_len1 += (t1 * t1);
-  }
-  while (p2 < b2->count) {
-    long n2 = b2->ti[p2];
-    double t2 = b2->tv[p2++];
-    vector_len2 += (t2 * t2);
-  }
 
-  return correlation / (sqrt(vector_len1) * sqrt(vector_len2));
+  return correlation / ( b1->vector_len_sqrt * b2->vector_len_sqrt );
 }
