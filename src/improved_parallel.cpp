@@ -1,7 +1,10 @@
+#include <atomic>
 #include <future>
+#include <list>
 #include <math.h>
 #include <queue>
 #include <stdio.h>
+#include <cstdlib>
 #include <string.h>
 #include <vector>
 
@@ -11,7 +14,10 @@
 #include <string>
 
 
-void ProcessBacteria(Bacteria **b, char *bacteria_name);
+std::atomic<int> processed;
+
+int LoadBacteria(Bacteria **b, char *bacteria_name, int index);
+void ProcessBacteria(Bacteria *b);
 void CompareAllBacteria();
 double CompareBacteria(Bacteria *b1, Bacteria *b2);
 
@@ -20,7 +26,7 @@ int main(int argc, char *argv[]) {
 
   Init();
   ReadInputFile("data/list.txt");
-  number_bacteria = 10;
+  number_bacteria = 41;
   CompareAllBacteria();
 
   auto t2 = std::chrono::high_resolution_clock::now();
@@ -34,29 +40,45 @@ int main(int argc, char *argv[]) {
 }
 
 void CompareAllBacteria() {
-  int max_parallel = std::thread::hardware_concurrency() > 0 ? std::thread::hardware_concurrency() - 1 : 3;
-  printf("Loading bacteria on %d threads\n", max_parallel);
-  
-  std::queue<std::future<void>> loads;
+  int max_file_loads = 3;
+  if(const char* max_file_loads_str = std::getenv("MAX_FILE_LOADS")) {
+    max_file_loads = std::stoi(max_file_loads_str);
+  }
+
+  printf("Reading %i bacteria in parallel\n", max_file_loads);
+
+  std::list<std::future<int>> loads;
+  std::vector<std::future<void>> processing;
+
+  int fi = 0;
+  int current_loads = 0;
 
   auto t1 = std::chrono::high_resolution_clock::now();
   Bacteria **b = new Bacteria *[number_bacteria];
-  for (int i = 0; i < number_bacteria; i++) {
-    printf("Launching %i of %i\n", i, number_bacteria);
-    loads.push(std::async(std::launch::async, ProcessBacteria, b + i,
-                          bacteria_name[i]));
 
-    while (loads.size() > max_parallel){
-      loads.front().get();
-      loads.pop();
+  while (processed < number_bacteria) {
+    if (current_loads < max_file_loads && fi < number_bacteria) {
+      printf("Launching %i of %i\n", fi, number_bacteria);
+      current_loads++;
+      loads.push_back(std::async(std::launch::async, LoadBacteria, b + fi,
+                                 bacteria_name[fi], fi));
+      fi++;
+    }
+
+    for (auto it = loads.begin(); it != loads.end(); ++it) {
+      if (it->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        processing.push_back(
+            std::async(std::launch::async, ProcessBacteria, b[it->get()]));
+        current_loads--;
+        it = loads.erase(it);
+      }
     }
   }
 
-  while (loads.size() > 0) {
-    loads.front().get();
-    loads.pop();
+  while (processing.size() > 0) {
+    processing.back().get();
+    processing.pop_back();
   }
-
   auto t2 = std::chrono::high_resolution_clock::now();
 
   std::vector<std::future<double>> comparisons;
@@ -85,11 +107,16 @@ void CompareAllBacteria() {
   std::cout << "Total Comparison: " << milli2 << "ms" << std::endl;
 }
 
-void ProcessBacteria(Bacteria **b, char *bacteria_name) {
+void ProcessBacteria(Bacteria *b) {
+  b->GenerateStochastic();
+  b->GenerateSparse();
+  processed++;
+}
+
+int LoadBacteria(Bacteria **b, char *bacteria_name, int index) {
   *b = new Bacteria(bacteria_name);
-  (*b)->GenerateStochastic();
-  (*b)->GenerateSparse();
   std::cout << "Loaded: " << bacteria_name << std::endl;
+  return index;
 }
 
 double CompareBacteria(Bacteria *b1, Bacteria *b2) {
@@ -111,5 +138,5 @@ double CompareBacteria(Bacteria *b1, Bacteria *b2) {
     }
   }
 
-  return correlation / ( b1->vector_len_sqrt * b2->vector_len_sqrt );
+  return correlation / (b1->vector_len_sqrt * b2->vector_len_sqrt);
 }
