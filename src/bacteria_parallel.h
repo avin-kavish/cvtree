@@ -66,8 +66,8 @@ private:
 
 public:
   long count;
-  double *tv;
-  long *ti;
+  std::vector<double> tv;
+  std::vector<long> ti;
   double vector_len_sqrt;
   std::string name;
 
@@ -99,18 +99,19 @@ public:
     long i_div_M1 = 0;
 
     double one_l_div_total[AA_NUMBER];
-    #pragma omp simd
+#pragma omp simd
     for (int i = 0; i < AA_NUMBER; i++)
       one_l_div_total[i] = (double)one_l[i] / total_l;
 
     double *second_div_total = new double[M1];
-    #pragma omp simd
+#pragma omp simd
     for (int i = 0; i < M1; i++)
       second_div_total[i] = (double)second[i] / total_plus_complement;
 
     count = 0;
-    t = new double[M];
-
+    double vector_len = 0;
+    tv.resize(M);
+    ti.resize(M);
     for (long i = 0; i < M; i++) {
       double p1 = second_div_total[i_div_aa_number];
       double p2 = one_l_div_total[i_mod_aa_number];
@@ -131,37 +132,23 @@ public:
         i_mod_M1++;
 
       if (stochastic > EPSILON) {
-        t[i] = (vector[i] - stochastic) / stochastic;
+        auto val = (vector[i] - stochastic) / stochastic;
+        tv[count] = val;
+        ti[count] = i;
+        vector_len += val * val;
         count++;
-      } else
-        t[i] = 0;
+      }
     }
+
+    tv.resize(count);
+    ti.resize(count);
+    vector_len_sqrt = sqrt(vector_len);
 
     delete second_div_total;
     delete vector;
     delete second;
   }
-
-
-  void GenerateSparse() {
-  tv = new double[count];
-  ti = new long[count];
-  double vector_len = 0;
-
-  int pos = 0;
-  for (long i = 0; i < M; i++) {
-    if (t[i] != 0) {
-      tv[pos] = t[i];
-      ti[pos] = i;
-      vector_len += t[i] * t[i];
-      pos++;
-    }
-  }
-  vector_len_sqrt = sqrt(vector_len);
-  delete t;
-}
-}
-;
+};
 
 bool ReadInputFile(std::string input_name) {
   if (FILE *input_file = fopen(input_name.c_str(), "r")) {

@@ -41,24 +41,23 @@ int main(int argc, char *argv[]) {
 
 void CompareAllBacteria() {
   int max_file_loads = 3;
-  if(const char* max_file_loads_str = std::getenv("MAX_FILE_LOADS")) {
+  if(const char* max_file_loads_str = std::getenv("MAX_FILE_LOADS"))
     max_file_loads = std::stoi(max_file_loads_str);
-  }
 
   printf("Reading %i bacteria in parallel\n", max_file_loads);
 
   std::list<std::future<int>> loads;
   std::vector<std::future<void>> processing;
 
-  int fi = 0;
-  int current_loads = 0;
+  int fi = 0, current_loads = 0;
 
-  auto t1 = std::chrono::high_resolution_clock::now();
   Bacteria **b = new Bacteria *[number_bacteria];
 
+  std::chrono::time_point<std::chrono::high_resolution_clock> t2;
+  auto t1 = std::chrono::high_resolution_clock::now();
   while (processed < number_bacteria) {
     if (current_loads < max_file_loads && fi < number_bacteria) {
-      printf("Launching %i of %i\n", fi, number_bacteria);
+      printf("Launching %i of %i\n", fi + 1, number_bacteria);
       current_loads++;
       loads.push_back(std::async(std::launch::async, LoadBacteria, b + fi,
                                  bacteria_name[fi], fi));
@@ -71,6 +70,9 @@ void CompareAllBacteria() {
             std::async(std::launch::async, ProcessBacteria, b[it->get()]));
         current_loads--;
         it = loads.erase(it);
+
+        if (fi == number_bacteria - 1)
+          t2 = std::chrono::high_resolution_clock::now();
       }
     }
   }
@@ -79,11 +81,10 @@ void CompareAllBacteria() {
     processing.back().get();
     processing.pop_back();
   }
-  auto t2 = std::chrono::high_resolution_clock::now();
+  auto t3 = std::chrono::high_resolution_clock::now();
 
   std::vector<std::future<double>> comparisons;
 
-  auto t5 = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < number_bacteria - 1; i++)
     for (int j = i + 1; j < number_bacteria; j++)
       comparisons.push_back(
@@ -97,14 +98,18 @@ void CompareAllBacteria() {
       printf("%.20lf\n", correlation);
       it++;
     }
+  auto t4 = std::chrono::high_resolution_clock::now();
 
-  auto t6 = std::chrono::high_resolution_clock::now();
   auto milli1 =
       std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
   auto milli2 =
-      std::chrono::duration_cast<std::chrono::milliseconds>(t6 - t5).count();
-  std::cout << "Total Load: " << milli1 << "ms" << std::endl;
-  std::cout << "Total Comparison: " << milli2 << "ms" << std::endl;
+      std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t1).count();
+  auto milli3 =
+      std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
+
+  std::cout << "Load: " << milli1 << "ms\n"
+            << "Processing: " << milli1 << "ms\n"
+            << "Comparison: " << milli2 << "ms" << std::endl;
 }
 
 void ProcessBacteria(Bacteria *b) {
