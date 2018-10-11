@@ -66,8 +66,8 @@ private:
 
 public:
   long count;
-  std::vector<double> tv;
-  std::vector<long> ti;
+  double *tv;
+  long *ti;
   double vector_len_sqrt;
   std::string name;
 
@@ -110,8 +110,8 @@ public:
 
     count = 0;
     double vector_len = 0;
-    tv.resize(M);
-    ti.resize(M);
+    tv = static_cast<double*>(malloc(M * sizeof(double)));
+    ti = static_cast<long*>(malloc(M * sizeof(long)));
     for (long i = 0; i < M; i++) {
       double p1 = second_div_total[i_div_aa_number];
       double p2 = one_l_div_total[i_mod_aa_number];
@@ -139,11 +139,9 @@ public:
         count++;
       }
     }
-
-    tv.resize(count);
-    ti.resize(count);
+    tv = static_cast<double*>(realloc(tv, count * sizeof(double)));
+    ti = static_cast<long*>(realloc(ti, count * sizeof(long)));
     vector_len_sqrt = sqrt(vector_len);
-
     delete second_div_total;
     delete vector;
     delete second;
