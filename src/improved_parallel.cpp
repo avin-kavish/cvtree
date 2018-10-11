@@ -13,7 +13,6 @@
 #include <iostream>
 #include <string>
 
-
 std::atomic<int> processed;
 
 int LoadBacteria(Bacteria **b, char *bacteria_name, int index);
@@ -25,8 +24,9 @@ int main(int argc, char *argv[]) {
   auto t1 = std::chrono::high_resolution_clock::now();
 
   Init();
+  printf("Constants:\t M:%d\t M1:%d\t M2:%d\t \n", M, M1, M2);
   ReadInputFile("data/list.txt");
-  number_bacteria = 41;
+  number_bacteria = 2;
   CompareAllBacteria();
 
   auto t2 = std::chrono::high_resolution_clock::now();
@@ -46,11 +46,9 @@ void CompareAllBacteria() {
 
   printf("Reading %i bacteria in parallel\n", max_file_loads);
 
+  int fi = 0, current_loads = 0;
   std::list<std::future<int>> loads;
   std::vector<std::future<void>> processing;
-
-  int fi = 0, current_loads = 0;
-
   Bacteria **b = new Bacteria *[number_bacteria];
 
   std::chrono::time_point<std::chrono::high_resolution_clock> t2;
@@ -84,7 +82,6 @@ void CompareAllBacteria() {
   auto t3 = std::chrono::high_resolution_clock::now();
 
   std::vector<std::future<double>> comparisons;
-
   for (int i = 0; i < number_bacteria - 1; i++)
     for (int j = i + 1; j < number_bacteria; j++)
       comparisons.push_back(
@@ -114,7 +111,6 @@ void CompareAllBacteria() {
 
 void ProcessBacteria(Bacteria *b) {
   b->GenerateStochastic();
-  b->GenerateSparse();
   processed++;
 }
 
