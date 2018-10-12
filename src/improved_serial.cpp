@@ -13,12 +13,10 @@ double CompareBacteria(Bacteria *b1, Bacteria *b2);
 int main(int argc, char *argv[])
 {
 	auto t1 = std::chrono::high_resolution_clock::now();
-
 	Init();
 	ReadInputFile("data/list.txt");
-	number_bacteria = 5;
+	number_bacteria = 41;
 	CompareAllBacteria();
-
 	auto t2 = std::chrono::high_resolution_clock::now();
 	std::cout	<< "Total time elapsed: "
 				<< std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count()
@@ -44,10 +42,8 @@ void CompareAllBacteria()
 		auto milli1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 		auto milli2 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
 		auto milli3 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
-
 		std::cout << "Load: " << milli1 <<  "ms \tstochastic compute: " << milli2 << "ms\tdense to sparse: " << milli3 << "ms" << std::endl;
 	}
-
 	auto t5 = std::chrono::high_resolution_clock::now();
 	for (int i = 0; i < number_bacteria - 1; i++)
 		for (int j = i + 1; j < number_bacteria; j++)
@@ -56,6 +52,8 @@ void CompareAllBacteria()
 			printf("%2d %2d -> %.20lf\n", i, j, correlation);
 		}
 	auto t6 = std::chrono::high_resolution_clock::now();
+    auto milli = std::chrono::duration_cast<std::chrono::milliseconds>(t6 - t5).count();
+	std::cout << "Comparison Time: " << milli <<  std::endl;
 }
 
 double CompareBacteria(Bacteria *b1, Bacteria *b2)
@@ -102,7 +100,6 @@ double CompareBacteria(Bacteria *b1, Bacteria *b2)
 		double t2 = b2->tv[p2++];
 		vector_len2 += (t2 * t2);
 	}
-
 	return correlation / (sqrt(vector_len1) * sqrt(vector_len2));
 }
 
