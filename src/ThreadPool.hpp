@@ -1,6 +1,5 @@
 #include <atomic>
 #include <condition_variable>
-#include <cstdio>
 #include <functional>
 #include <future>
 #include <mutex>

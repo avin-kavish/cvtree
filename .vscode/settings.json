@@ -62,6 +62,9 @@
         "fstream": "cpp",
         "optional": "cpp",
         "sstream": "cpp",
-        "deque": "cpp"
+        "deque": "cpp",
+        "bitset": "cpp",
+        "unordered_set": "cpp",
+        "cinttypes": "cpp"
     }
 }

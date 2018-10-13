@@ -1,5 +1,7 @@
 #ifndef BACTERIA
 #define BACTERIA
+#include <cmath>
+#include <cstring>
 
 int number_bacteria;
 char **bacteria_name;

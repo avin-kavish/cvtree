@@ -1,3 +1,6 @@
+#include "ThreadPool.hpp"
+#include "bacteria_parallel.hpp"
+#include "cxxopts.hpp"
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -11,36 +14,25 @@
 #include <string>
 #include <vector>
 
-#include "ThreadPool.h"
-#include "bacteria_parallel.h"
-
-struct Comparison {
-  Bacteria *b1;
-  Bacteria *b2;
-  double *correlation;
-};
-
-struct Load {
-  Bacteria *&b;
-  std::string &filename;
-};
-
 int LoadBacteria(Bacteria **b, char *bacteria_name, int index);
 void ProcessBacteria(Bacteria *b);
-void CompareAllBacteria();
+void CompareAllBacteria(int workers);
 double CompareBacteria(Bacteria *b1, Bacteria *b2);
-
-std::atomic<int> processed;
-std::mutex mutex;
-std::queue<Comparison> jobQ;
+  std::atomic<int> processed;
 
 int main(int argc, char *argv[]) {
+  cxxopts::Options options("CVTree", "Frequency Vector comparison");
+  options.add_options()("t,threads", "Number of threads",
+                        cxxopts::value<int>()->default_value("6"));
+  auto result = options.parse(argc, argv);
+  auto workers = result["threads"].as<int>();
+
   auto t1 = std::chrono::high_resolution_clock::now();
   Init();
   printf("Constants:\t M:%d\t M1:%d\t M2:%d\t \n", M, M1, M2);
   ReadInputFile("data/list.txt");
   number_bacteria = 41;
-  CompareAllBacteria();
+  CompareAllBacteria(workers);
   auto t2 = std::chrono::high_resolution_clock::now();
   std::cout << "Total time elapsed: "
             << std::chrono::duration_cast<std::chrono::duration<double>>(t2 -
@@ -50,14 +42,14 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-void CompareAllBacteria() {
+void CompareAllBacteria(int worker_count) {
   int max_file_loads = 3;
   if (const char *max_file_loads_str = std::getenv("MAX_FILE_LOADS"))
     max_file_loads = std::stoi(max_file_loads_str);
 
-  printf("Reading %i bacteria in parallel\n", max_file_loads);
+  printf("Launching %i threads\nReading %i bacteria in parallel\n", worker_count, max_file_loads);
 
-  ThreadPool workers(6);
+  ThreadPool workers(worker_count);
   int fi = 0, current_loads = 0;
   std::list<std::future<int>> loads;
   std::vector<std::future<void>> processing;
