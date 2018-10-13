@@ -72,10 +72,8 @@ int main(int argc, char *argv[])
       count++;
 
   correlation = new double[count];
-
   MultiThreadedCPUCompare(bacteria);
   PrintCorrelation();
-
 	auto t2 = std::chrono::high_resolution_clock::now();
 	std::cout	<< "Total time elapsed: "
 				    << std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count()
@@ -141,7 +139,6 @@ void CompareBacteria(Compare c)
 		else
 			correlation += b1->sparse_vector[p1++] * b2->sparse_vector[p2++];
 	}
-
 	*c.result = correlation / (b1->vector_len_sqrt * b2->vector_len_sqrt);
 }
 
