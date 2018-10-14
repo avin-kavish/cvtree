@@ -65,6 +65,7 @@
         "deque": "cpp",
         "bitset": "cpp",
         "unordered_set": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "iomanip": "cpp"
     }
 }

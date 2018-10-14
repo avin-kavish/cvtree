@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <future>
+#include <iomanip>
 #include <iostream>
 #include <list>
 #include <math.h>
@@ -13,42 +14,46 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#define FIXED_PRECISION(x, y) std::fixed << std::setprecision(y) << (x)
 
 int LoadBacteria(Bacteria **b, char *bacteria_name, int index);
 void ProcessBacteria(Bacteria *b);
-void CompareAllBacteria(int workers);
+void CompareAllBacteria(int workers, int max_file_loads);
 double CompareBacteria(Bacteria *b1, Bacteria *b2);
-  std::atomic<int> processed;
+std::atomic<int> processed;
 
 int main(int argc, char *argv[]) {
   cxxopts::Options options("CVTree", "Frequency Vector comparison");
-  options.add_options()("t,threads", "Number of threads",
-                        cxxopts::value<int>()->default_value("6"));
+  options.add_options()("t,threads", "Number of Worker threads",
+                        cxxopts::value<int>()->default_value("5"))(
+      "f,parallel-files", "Number of Concurrent file reads",
+      cxxopts::value<int>()->default_value("1"));
   auto result = options.parse(argc, argv);
   auto workers = result["threads"].as<int>();
+  auto parallel_files = result["parallel-files"].as<int>();
 
   auto t1 = std::chrono::high_resolution_clock::now();
   Init();
   printf("Constants:\t M:%d\t M1:%d\t M2:%d\t \n", M, M1, M2);
   ReadInputFile("data/list.txt");
   number_bacteria = 41;
-  CompareAllBacteria(workers);
+  CompareAllBacteria(workers, parallel_files);
   auto t2 = std::chrono::high_resolution_clock::now();
   std::cout << "Total time elapsed: "
-            << std::chrono::duration_cast<std::chrono::duration<double>>(t2 -
-                                                                         t1)
+            << FIXED_PRECISION(
+                   std::chrono::duration_cast<std::chrono::duration<double>>(
+                       t2 - t1),
+                   2)
                    .count()
             << "s" << std::endl;
   return 0;
 }
 
-void CompareAllBacteria(int worker_count) {
-  int max_file_loads = 3;
-  if (const char *max_file_loads_str = std::getenv("MAX_FILE_LOADS"))
-    max_file_loads = std::stoi(max_file_loads_str);
+void CompareAllBacteria(int worker_count, int max_file_loads) {
+  printf("Launching %i threads\nReading %i bacteria in parallel\n",
+         worker_count, max_file_loads);
 
-  printf("Launching %i threads\nReading %i bacteria in parallel\n", worker_count, max_file_loads);
-
+  ThreadPool file_workers(max_file_loads);
   ThreadPool workers(worker_count);
   int fi = 0, current_loads = 0;
   std::list<std::future<int>> loads;
@@ -57,27 +62,42 @@ void CompareAllBacteria(int worker_count) {
 
   std::chrono::time_point<std::chrono::high_resolution_clock> t2;
   auto t1 = std::chrono::high_resolution_clock::now();
-  while (processed < number_bacteria) {
-    if (current_loads < max_file_loads && fi < number_bacteria) {
-      printf("Launching %i of %i\n", fi + 1, number_bacteria);
-      current_loads++;
-      loads.push_back(
-          workers.queueWork(LoadBacteria, b + fi, bacteria_name[fi], fi));
-      fi++;
-    }
+  // while (processed < number_bacteria) {
+  //   if (current_loads < max_file_loads && fi < number_bacteria) {
+  //     printf("Launching %i of %i\n", fi + 1, number_bacteria);
+  //     current_loads++;
+  //     loads.push_back(
+  //         file_workers.queueWork(LoadBacteria, b + fi, bacteria_name[fi],
+  //         fi));
+  //     fi++;
+  //   }
+  //   for (auto it = loads.begin(); it != loads.end(); ++it) {
+  //     if (it->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+  //     {
+  //       processing.push_back(workers.queueWork(ProcessBacteria,
+  //       b[it->get()])); it = loads.erase(it); current_loads--;
 
+  //       if (fi == number_bacteria - 1)
+  //         t2 = std::chrono::high_resolution_clock::now();
+  //     }
+  //   }
+  // }
+
+  for (auto i = 0; i < number_bacteria; i++)
+    loads.push_back(
+        file_workers.queueWork(LoadBacteria, b + i, bacteria_name[i], i));
+
+  while (loads.size() > 0) {
     for (auto it = loads.begin(); it != loads.end(); ++it) {
       if (it->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
         processing.push_back(workers.queueWork(ProcessBacteria, b[it->get()]));
         it = loads.erase(it);
-        current_loads--;
 
         if (fi == number_bacteria - 1)
           t2 = std::chrono::high_resolution_clock::now();
       }
     }
   }
-
   while (processing.size() > 0) {
     processing.back().get();
     processing.pop_back();
@@ -86,16 +106,14 @@ void CompareAllBacteria(int worker_count) {
   auto t3 = std::chrono::high_resolution_clock::now();
   std::vector<std::future<double>> comparisons;
   for (int i = 0; i < number_bacteria - 1; i++)
-    for (int j = i + 1; j < number_bacteria; j++) {
+    for (int j = i + 1; j < number_bacteria; j++)
       comparisons.push_back(workers.queueWork(CompareBacteria, b[i], b[j]));
-    }
 
   auto it = comparisons.begin();
   for (int i = 0; i < number_bacteria - 1; i++)
-    for (int j = i + 1; j < number_bacteria; j++) {
-      printf("%2d %2d -> %.20lf\n", i, j, it->get());
-      it++;
-    }
+    for (int j = i + 1; j < number_bacteria; j++)
+      std::cout << i << " " << j << " -> " << FIXED_PRECISION((it++)->get(), 20)
+                << std::endl;
   auto t4 = std::chrono::high_resolution_clock::now();
 
   auto milli1 =
@@ -104,7 +122,6 @@ void CompareAllBacteria(int worker_count) {
       std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t1).count();
   auto milli3 =
       std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
-
   std::cout << "Load: " << milli1 << "ms\n"
             << "Processing: " << milli2 << "ms\n"
             << "Comparison: " << milli3 << "ms" << std::endl;

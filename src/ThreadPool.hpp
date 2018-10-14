@@ -7,8 +7,7 @@
 #include <thread>
 #include <vector>
 
-template <typename T> class BlockingQueue {
-
+template <typename T> class BPopQueue {
 public:
   T pop() {
     std::unique_lock<std::mutex> mlock(mutex);
@@ -37,7 +36,6 @@ class ThreadPool {
 
 public:
   ThreadPool(int size) {
-    run = true;
     for (auto i = 0; i < size; i++)
       threads.push_back(std::thread(&ThreadPool::doWork, this));
   }
@@ -57,7 +55,6 @@ public:
   }
 
   void terminate() {
-    run = false;
     auto termFn = new std::function<bool()>([] { return true; });
     for (auto it = threads.begin(); it != threads.end(); it++)
       jobs.push(termFn);
@@ -70,14 +67,16 @@ public:
 
 private:
   void doWork() {
-    while (run) {
+    while (true) {
       auto func = jobs.pop();
-      if ((*func)())
+      if ((*func)()) {
+        //delete func;
         return;
+      }
+      //delete func;
     }
   }
 
   std::vector<std::thread> threads;
-  std::atomic<bool> run;
-  BlockingQueue<std::function<bool()> *> jobs;
+  BPopQueue<std::function<bool()> *> jobs;
 };
