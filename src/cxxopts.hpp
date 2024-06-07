@@ -50,8 +50,8 @@ THE SOFTWARE.
 namespace cxxopts {
 static constexpr struct {
   uint8_t major, minor, patch;
-} version = {CXXOPTS__VERSION_MAJOR, CXXOPTS__VERSION_MINOR,
-             CXXOPTS__VERSION_PATCH};
+} version = {
+    CXXOPTS__VERSION_MAJOR, CXXOPTS__VERSION_MINOR, CXXOPTS__VERSION_PATCH};
 } // namespace cxxopts
 
 // when we ask cxxopts to use Unicode, help strings are processed using ICU,
@@ -238,66 +238,70 @@ public:
 class option_exists_error : public OptionSpecException {
 public:
   option_exists_error(const std::string &option)
-      : OptionSpecException(u8"Option " + LQUOTE + option + RQUOTE +
-                            u8" already exists") {}
+      : OptionSpecException(
+            u8"Option " + LQUOTE + option + RQUOTE + u8" already exists") {}
 };
 
 class invalid_option_format_error : public OptionSpecException {
 public:
   invalid_option_format_error(const std::string &format)
-      : OptionSpecException(u8"Invalid option format " + LQUOTE + format +
-                            RQUOTE) {}
+      : OptionSpecException(
+            u8"Invalid option format " + LQUOTE + format + RQUOTE) {}
 };
 
 class option_not_exists_exception : public OptionParseException {
 public:
   option_not_exists_exception(const std::string &option)
-      : OptionParseException(u8"Option " + LQUOTE + option + RQUOTE +
-                             u8" does not exist") {}
+      : OptionParseException(
+            u8"Option " + LQUOTE + option + RQUOTE + u8" does not exist") {}
 };
 
 class missing_argument_exception : public OptionParseException {
 public:
   missing_argument_exception(const std::string &option)
-      : OptionParseException(u8"Option " + LQUOTE + option + RQUOTE +
-                             u8" is missing an argument") {}
+      : OptionParseException(
+            u8"Option " + LQUOTE + option + RQUOTE +
+            u8" is missing an argument") {}
 };
 
 class option_requires_argument_exception : public OptionParseException {
 public:
   option_requires_argument_exception(const std::string &option)
-      : OptionParseException(u8"Option " + LQUOTE + option + RQUOTE +
-                             u8" requires an argument") {}
+      : OptionParseException(
+            u8"Option " + LQUOTE + option + RQUOTE +
+            u8" requires an argument") {}
 };
 
 class option_not_has_argument_exception : public OptionParseException {
 public:
-  option_not_has_argument_exception(const std::string &option,
-                                    const std::string &arg)
-      : OptionParseException(u8"Option " + LQUOTE + option + RQUOTE +
-                             u8" does not take an argument, but argument " +
-                             LQUOTE + arg + RQUOTE + " given") {}
+  option_not_has_argument_exception(
+      const std::string &option, const std::string &arg)
+      : OptionParseException(
+            u8"Option " + LQUOTE + option + RQUOTE +
+            u8" does not take an argument, but argument " + LQUOTE + arg +
+            RQUOTE + " given") {}
 };
 
 class option_not_present_exception : public OptionParseException {
 public:
   option_not_present_exception(const std::string &option)
-      : OptionParseException(u8"Option " + LQUOTE + option + RQUOTE +
-                             u8" not present") {}
+      : OptionParseException(
+            u8"Option " + LQUOTE + option + RQUOTE + u8" not present") {}
 };
 
 class argument_incorrect_type : public OptionParseException {
 public:
   argument_incorrect_type(const std::string &arg)
-      : OptionParseException(u8"Argument " + LQUOTE + arg + RQUOTE +
-                             u8" failed to parse") {}
+      : OptionParseException(
+            u8"Argument " + LQUOTE + arg + RQUOTE + u8" failed to parse") {}
 };
 
 class option_required_exception : public OptionParseException {
 public:
   option_required_exception(const std::string &option)
-      : OptionParseException(u8"Option " + LQUOTE + option + RQUOTE +
-                             u8" is required but not present") {}
+      : OptionParseException(
+            u8"Option " + LQUOTE + option + RQUOTE +
+            u8" is required but not present") {}
 };
 
 namespace values {
@@ -395,8 +399,8 @@ template <typename T> void integer_parser(const std::string &text, T &value) {
   detail::check_signed_range<T>(negative, result, text);
 
   if (negative) {
-    value = checked_negate<T>(result, text,
-                              std::integral_constant<bool, is_signed>());
+    value = checked_negate<T>(
+        result, text, std::integral_constant<bool, is_signed>());
   } else {
     value = result;
   }
@@ -610,8 +614,11 @@ class OptionAdder;
 
 class OptionDetails {
 public:
-  OptionDetails(const std::string &short_, const std::string &long_,
-                const String &desc, std::shared_ptr<const Value> val)
+  OptionDetails(
+      const std::string &short_,
+      const std::string &long_,
+      const String &desc,
+      std::shared_ptr<const Value> val)
       : m_short(short_), m_long(long_), m_desc(desc), m_value(val), m_count(0) {
   }
 
@@ -661,8 +668,8 @@ struct HelpGroupDetails {
 
 class OptionValue {
 public:
-  void parse(std::shared_ptr<const OptionDetails> details,
-             const std::string &text) {
+  void
+  parse(std::shared_ptr<const OptionDetails> details, const std::string &text) {
     ensure_value(details);
     ++m_count;
     m_value->parse(text);
@@ -718,7 +725,10 @@ class ParseResult {
 public:
   ParseResult(
       const std::unordered_map<std::string, std::shared_ptr<OptionDetails>> &,
-      std::vector<std::string>, bool allow_unrecognised, int &, char **&);
+      std::vector<std::string>,
+      bool allow_unrecognised,
+      int &,
+      char **&);
 
   size_t count(const std::string &o) const {
     auto iter = m_options.find(o);
@@ -752,14 +762,19 @@ private:
 
   bool consume_positional(std::string a);
 
-  void parse_option(std::shared_ptr<OptionDetails> value,
-                    const std::string &name, const std::string &arg = "");
+  void parse_option(
+      std::shared_ptr<OptionDetails> value,
+      const std::string &name,
+      const std::string &arg = "");
 
   void parse_default(std::shared_ptr<OptionDetails> details);
 
-  void checked_parse_arg(int argc, char *argv[], int &current,
-                         std::shared_ptr<OptionDetails> value,
-                         const std::string &name);
+  void checked_parse_arg(
+      int argc,
+      char *argv[],
+      int &current,
+      std::shared_ptr<OptionDetails> value,
+      const std::string &name);
 
   const std::unordered_map<std::string, std::shared_ptr<OptionDetails>>
       &m_options;
@@ -806,9 +821,13 @@ public:
 
   OptionAdder add_options(std::string group = "");
 
-  void add_option(const std::string &group, const std::string &s,
-                  const std::string &l, std::string desc,
-                  std::shared_ptr<const Value> value, std::string arg_help);
+  void add_option(
+      const std::string &group,
+      const std::string &s,
+      const std::string &l,
+      std::string desc,
+      std::shared_ptr<const Value> value,
+      std::string arg_help);
 
   // parse positional arguments into the given option
   void parse_positional(std::string option);
@@ -829,13 +848,13 @@ public:
   const HelpGroupDetails &group_help(const std::string &group) const;
 
 private:
-  void add_one_option(const std::string &option,
-                      std::shared_ptr<OptionDetails> details);
+  void add_one_option(
+      const std::string &option, std::shared_ptr<OptionDetails> details);
 
   String help_one_group(const std::string &group) const;
 
-  void generate_group_help(String &result,
-                           const std::vector<std::string> &groups) const;
+  void generate_group_help(
+      String &result, const std::vector<std::string> &groups) const;
 
   void generate_all_groups_help(String &result) const;
 
@@ -860,10 +879,11 @@ public:
   OptionAdder(Options &options, std::string group)
       : m_options(options), m_group(std::move(group)) {}
 
-  OptionAdder &
-  operator()(const std::string &opts, const std::string &desc,
-             std::shared_ptr<const Value> value = ::cxxopts::value<bool>(),
-             std::string arg_help = "");
+  OptionAdder &operator()(
+      const std::string &opts,
+      const std::string &desc,
+      std::shared_ptr<const Value> value = ::cxxopts::value<bool>(),
+      std::string arg_help = "");
 
 private:
   Options &m_options;
@@ -909,8 +929,8 @@ String format_option(const HelpOptionDetails &o) {
   return result;
 }
 
-String format_description(const HelpOptionDetails &o, size_t start,
-                          size_t width) {
+String
+format_description(const HelpOptionDetails &o, size_t start, size_t width) {
   auto desc = o.desc;
 
   if (o.has_default && (!o.is_boolean || o.default_value != "false")) {
@@ -964,7 +984,9 @@ String format_description(const HelpOptionDetails &o, size_t start,
 inline ParseResult::ParseResult(
     const std::unordered_map<std::string, std::shared_ptr<OptionDetails>>
         &options,
-    std::vector<std::string> positional, bool allow_unrecognised, int &argc,
+    std::vector<std::string> positional,
+    bool allow_unrecognised,
+    int &argc,
     char **&argv)
     : m_options(options), m_positional(std::move(positional)),
       m_next_positional(m_positional.begin()),
@@ -976,10 +998,11 @@ inline OptionAdder Options::add_options(std::string group) {
   return OptionAdder(*this, std::move(group));
 }
 
-inline OptionAdder &OptionAdder::operator()(const std::string &opts,
-                                            const std::string &desc,
-                                            std::shared_ptr<const Value> value,
-                                            std::string arg_help) {
+inline OptionAdder &OptionAdder::operator()(
+    const std::string &opts,
+    const std::string &desc,
+    std::shared_ptr<const Value> value,
+    std::string arg_help) {
   std::match_results<const char *> result;
   std::regex_match(opts.c_str(), result, option_specifier);
 
@@ -1005,9 +1028,13 @@ inline OptionAdder &OptionAdder::operator()(const std::string &opts,
     }
   }(short_match, long_match);
 
-  m_options.add_option(m_group, std::get<0>(option_names),
-                       std::get<1>(option_names), desc, value,
-                       std::move(arg_help));
+  m_options.add_option(
+      m_group,
+      std::get<0>(option_names),
+      std::get<1>(option_names),
+      desc,
+      value,
+      std::move(arg_help));
 
   return *this;
 }
@@ -1016,18 +1043,22 @@ inline void ParseResult::parse_default(std::shared_ptr<OptionDetails> details) {
   m_results[details].parse_default(details);
 }
 
-inline void ParseResult::parse_option(std::shared_ptr<OptionDetails> value,
-                                      const std::string & /*name*/,
-                                      const std::string &arg) {
+inline void ParseResult::parse_option(
+    std::shared_ptr<OptionDetails> value,
+    const std::string & /*name*/,
+    const std::string &arg) {
   auto &result = m_results[value];
   result.parse(value, arg);
 
   m_sequential.emplace_back(value->long_name(), arg);
 }
 
-inline void ParseResult::checked_parse_arg(int argc, char *argv[], int &current,
-                                           std::shared_ptr<OptionDetails> value,
-                                           const std::string &name) {
+inline void ParseResult::checked_parse_arg(
+    int argc,
+    char *argv[],
+    int &current,
+    std::shared_ptr<OptionDetails> value,
+    const std::string &name) {
   if (current + 1 >= argc) {
     if (value->value().has_implicit()) {
       parse_option(value, name, value->value().get_implicit_value());
@@ -1044,8 +1075,8 @@ inline void ParseResult::checked_parse_arg(int argc, char *argv[], int &current,
   }
 }
 
-inline void ParseResult::add_to_option(const std::string &option,
-                                       const std::string &arg) {
+inline void
+ParseResult::add_to_option(const std::string &option, const std::string &arg) {
   auto iter = m_options.find(option);
 
   if (iter == m_options.end()) {
@@ -1224,10 +1255,13 @@ inline void ParseResult::parse(int &argc, char **&argv) {
   argc = nextKeep;
 }
 
-inline void Options::add_option(const std::string &group, const std::string &s,
-                                const std::string &l, std::string desc,
-                                std::shared_ptr<const Value> value,
-                                std::string arg_help) {
+inline void Options::add_option(
+    const std::string &group,
+    const std::string &s,
+    const std::string &l,
+    std::string desc,
+    std::shared_ptr<const Value> value,
+    std::string arg_help) {
   auto stringDesc = toLocalString(std::move(desc));
   auto option = std::make_shared<OptionDetails>(s, l, stringDesc, value);
 
@@ -1243,13 +1277,20 @@ inline void Options::add_option(const std::string &group, const std::string &s,
   auto &options = m_help[group];
 
   options.options.emplace_back(HelpOptionDetails{
-      s, l, stringDesc, value->has_default(), value->get_default_value(),
-      value->has_implicit(), value->get_implicit_value(), std::move(arg_help),
-      value->is_container(), value->is_boolean()});
+      s,
+      l,
+      stringDesc,
+      value->has_default(),
+      value->get_default_value(),
+      value->has_implicit(),
+      value->get_implicit_value(),
+      std::move(arg_help),
+      value->is_container(),
+      value->is_boolean()});
 }
 
-inline void Options::add_one_option(const std::string &option,
-                                    std::shared_ptr<OptionDetails> details) {
+inline void Options::add_one_option(
+    const std::string &option, std::shared_ptr<OptionDetails> details) {
   auto in = m_options.emplace(option, details);
 
   if (!in.second) {
@@ -1368,7 +1409,9 @@ inline const std::vector<std::string> Options::groups() const {
   std::vector<std::string> g;
 
   std::transform(
-      m_help.begin(), m_help.end(), std::back_inserter(g),
+      m_help.begin(),
+      m_help.end(),
+      std::back_inserter(g),
       [](const std::map<std::string, HelpGroupDetails>::value_type &pair) {
         return pair.first;
       });

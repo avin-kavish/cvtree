@@ -20,25 +20,33 @@ int LoadBacteria(Bacteria **b, char *bacteria_name, int index);
 void ProcessBacteria(Bacteria *b);
 void CompareAllBacteria(int workers, int max_file_loads);
 double CompareBacteria(Bacteria *b1, Bacteria *b2);
+
 std::atomic<int> processed;
 
 int main(int argc, char *argv[]) {
   cxxopts::Options options("CVTree", "Frequency Vector comparison");
-  options.add_options()("t,threads", "Number of Worker threads",
-                        cxxopts::value<int>()->default_value("5"))(
-      "f,parallel-files", "Number of Concurrent file reads",
+  options.add_options()(
+      "t,threads",
+      "Number of Worker threads",
+      cxxopts::value<int>()->default_value("5"))(
+      "f,parallel-files",
+      "Number of Concurrent file reads",
       cxxopts::value<int>()->default_value("1"));
+      
   auto result = options.parse(argc, argv);
   auto workers = result["threads"].as<int>();
   auto parallel_files = result["parallel-files"].as<int>();
 
   auto t1 = std::chrono::high_resolution_clock::now();
+
   Init();
   printf("Constants:\t M:%d\t M1:%d\t M2:%d\t \n", M, M1, M2);
   ReadInputFile("data/list.txt");
   number_bacteria = 41;
   CompareAllBacteria(workers, parallel_files);
+
   auto t2 = std::chrono::high_resolution_clock::now();
+
   std::cout << "Total time elapsed: "
             << FIXED_PRECISION(
                    std::chrono::duration_cast<std::chrono::duration<double>>(
@@ -50,8 +58,10 @@ int main(int argc, char *argv[]) {
 }
 
 void CompareAllBacteria(int worker_count, int max_file_loads) {
-  printf("Launching %i threads\nReading %i bacteria in parallel\n",
-         worker_count, max_file_loads);
+  printf(
+      "Launching %i threads\nReading %i bacteria in parallel\n",
+      worker_count,
+      max_file_loads);
 
   ThreadPool file_workers(max_file_loads);
   ThreadPool workers(worker_count);
@@ -62,6 +72,7 @@ void CompareAllBacteria(int worker_count, int max_file_loads) {
 
   std::chrono::time_point<std::chrono::high_resolution_clock> t2;
   auto t1 = std::chrono::high_resolution_clock::now();
+
   // while (processed < number_bacteria) {
   //   if (current_loads < max_file_loads && fi < number_bacteria) {
   //     printf("Launching %i of %i\n", fi + 1, number_bacteria);
