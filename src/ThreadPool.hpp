@@ -41,7 +41,7 @@ public:
   }
 
   template <typename F, typename... Args>
-  auto queueWork(F &&f, Args &&... args) -> std::future<decltype(f(args...))> {
+  auto queueWork(F &&f, Args &&...args) -> std::future<decltype(f(args...))> {
     auto work = std::make_shared<std::packaged_task<decltype(f(args...))()>>(
         std::bind(std::forward<F>(f), std::forward<Args>(args)...));
 
@@ -70,10 +70,10 @@ private:
     while (true) {
       auto func = jobs.pop();
       if ((*func)()) {
-        //delete func;
+        // delete func;
         return;
       }
-      //delete func;
+      // delete func;
     }
   }
 
