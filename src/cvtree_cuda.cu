@@ -20,11 +20,16 @@ struct Compare {
   double *result;
 };
 
-__global__ void _cuda_stochastic_precompute(long N, long M1, long *vector,
-                                            long *second, long *one_l,
-                                            long total, long complement,
-                                            long total_l,
-                                            double *dense_stochastic);
+__global__ void _cuda_stochastic_precompute(
+    long N,
+    long M1,
+    long *vector,
+    long *second,
+    long *one_l,
+    long total,
+    long complement,
+    long total_l,
+    double *dense_stochastic);
 void ProcessBacteria(Bacteria *b);
 void CompareBacteria(Compare c);
 void MultiThreadedCPUCompare(Bacteria **b);
@@ -41,6 +46,7 @@ int main(int argc, char *argv[]) {
 
   Init();
   ReadInputFile("data/list.txt");
+
   number_bacteria = 41;
   current_loads = 0;
   std::future<void> threads[number_bacteria];
@@ -60,9 +66,9 @@ int main(int argc, char *argv[]) {
       fi++;
     }
   }
-  for (int fi = 0; fi < number_bacteria; fi++) {
+
+  for (int fi = 0; fi < number_bacteria; fi++)
     threads[fi].get();
-  }
 
   int count = 0;
   for (int i = 0; i < number_bacteria - 1; i++)
@@ -72,10 +78,11 @@ int main(int argc, char *argv[]) {
   correlation = new double[count];
   MultiThreadedCPUCompare(bacteria);
   PrintCorrelation();
+
   auto t2 = std::chrono::high_resolution_clock::now();
   std::cout << "Total time elapsed: "
-            << std::chrono::duration_cast<std::chrono::duration<double>>(t2 -
-                                                                         t1)
+            << std::chrono::duration_cast<std::chrono::duration<double>>(
+                   t2 - t1)
                    .count()
             << "s" << std::endl;
 
@@ -101,12 +108,19 @@ void ProcessBacteria(Bacteria *b) {
 
   // Launch
   _cuda_stochastic_precompute<<<10, 768, 0, stream>>>(
-      M, M1, b->vector, b->second, b->one_l, b->total, b->complement,
-      b->total_l, b->dense_stochastic);
+      M,
+      M1,
+      b->vector,
+      b->second,
+      b->one_l,
+      b->total,
+      b->complement,
+      b->total_l,
+      b->dense_stochastic);
 
   // Fetch mem
-  cudaMemPrefetchAsync(b->dense_stochastic, M * sizeof(double), cudaCpuDeviceId,
-                       stream);
+  cudaMemPrefetchAsync(
+      b->dense_stochastic, M * sizeof(double), cudaCpuDeviceId, stream);
   cudaFree(b->vector);
   cudaFree(b->second);
 
@@ -144,11 +158,16 @@ void CompareBacteria(Compare c) {
   *c.result = correlation / (b1->vector_len_sqrt * b2->vector_len_sqrt);
 }
 
-__global__ void _cuda_stochastic_precompute(long N, long M1, long *vector,
-                                            long *second, long *one_l,
-                                            long total, long complement,
-                                            long total_l,
-                                            double *dense_stochastic) {
+__global__ void _cuda_stochastic_precompute(
+    long N,
+    long M1,
+    long *vector,
+    long *second,
+    long *one_l,
+    long total,
+    long complement,
+    long total_l,
+    double *dense_stochastic) {
 
   int i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -183,7 +202,6 @@ void MultiThreadedCPUCompare(Bacteria **bacteria) {
   while (compare_threads.size() > 0) {
     compare_threads.back().get();
     compare_threads.pop_back();
-    ;
   }
 }
 

@@ -18,8 +18,8 @@ int main(int argc, char *argv[]) {
   CompareAllBacteria();
   auto t2 = std::chrono::high_resolution_clock::now();
   std::cout << "Total time elapsed: "
-            << std::chrono::duration_cast<std::chrono::duration<double>>(t2 -
-                                                                         t1)
+            << std::chrono::duration_cast<std::chrono::duration<double>>(
+                   t2 - t1)
                    .count()
             << "s" << std::endl;
 
@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
 
 void CompareAllBacteria() {
   Bacteria **b = new Bacteria *[number_bacteria];
+
   for (int i = 0; i < number_bacteria; i++) {
     printf("load %d of %d\t", i + 1, number_bacteria);
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -47,12 +48,16 @@ void CompareAllBacteria() {
     std::cout << "Load: " << milli1 << "ms \tstochastic compute: " << milli2
               << "ms\tdense to sparse: " << milli3 << "ms" << std::endl;
   }
+
   auto t5 = std::chrono::high_resolution_clock::now();
-  for (int i = 0; i < number_bacteria - 1; i++)
+
+  for (int i = 0; i < number_bacteria - 1; i++) {
     for (int j = i + 1; j < number_bacteria; j++) {
       double correlation = CompareBacteria(b[i], b[j]);
       printf("%2d %2d -> %.20lf\n", i, j, correlation);
     }
+  }
+
   auto t6 = std::chrono::high_resolution_clock::now();
   auto milli =
       std::chrono::duration_cast<std::chrono::milliseconds>(t6 - t5).count();
@@ -65,6 +70,7 @@ double CompareBacteria(Bacteria *b1, Bacteria *b2) {
   double vector_len2 = 0;
   long p1 = 0;
   long p2 = 0;
+
   while (p1 < b1->count && p2 < b2->count) {
     long n1 = b1->ti[p1];
     long n2 = b2->ti[p2];
@@ -84,15 +90,18 @@ double CompareBacteria(Bacteria *b1, Bacteria *b2) {
       correlation += t1 * t2;
     }
   }
+
   while (p1 < b1->count) {
     long n1 = b1->ti[p1];
     double t1 = b1->tv[p1++];
     vector_len1 += (t1 * t1);
   }
+
   while (p2 < b2->count) {
     long n2 = b2->ti[p2];
     double t2 = b2->tv[p2++];
     vector_len2 += (t2 * t2);
   }
+
   return correlation / (sqrt(vector_len1) * sqrt(vector_len2));
 }

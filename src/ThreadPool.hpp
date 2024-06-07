@@ -66,6 +66,9 @@ public:
   ~ThreadPool() { terminate(); }
 
 private:
+  std::vector<std::thread> threads;
+  BPopQueue<std::function<bool()> *> jobs;
+
   void doWork() {
     while (true) {
       auto func = jobs.pop();
@@ -76,7 +79,4 @@ private:
       // delete func;
     }
   }
-
-  std::vector<std::thread> threads;
-  BPopQueue<std::function<bool()> *> jobs;
 };

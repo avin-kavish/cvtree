@@ -94,6 +94,7 @@ public:
 
   void GenerateStochastic() {
     double one_l_div_total[AA_NUMBER];
+
 #pragma omp simd
     for (int i = 0; i < AA_NUMBER; i++)
       one_l_div_total[i] = (double)one_l[i] / total_l;
@@ -101,6 +102,7 @@ public:
     long total_plus_complement = total + complement;
     double *second_div_total = new double[M1];
 #pragma omp simd
+
     for (int i = 0; i < M1; i++)
       second_div_total[i] = (double)second[i] / total_plus_complement;
 
@@ -111,8 +113,10 @@ public:
     long i_mod_M1 = 0;
     long i_div_M1 = 0;
     double vector_len = 0;
+
     tv = static_cast<double *>(malloc(M * sizeof(double)));
     ti = static_cast<long *>(malloc(M * sizeof(long)));
+
     for (long i = 0; i < M; i++) {
       double p1 = second_div_total[i_div_aa_number];
       double p2 = one_l_div_total[i_mod_aa_number];
@@ -140,9 +144,11 @@ public:
         count++;
       }
     }
+
     tv = static_cast<double *>(realloc(tv, count * sizeof(double)));
     ti = static_cast<long *>(realloc(ti, count * sizeof(long)));
     vector_len_sqrt = sqrt(vector_len);
+
     delete second_div_total;
     delete vector;
     delete second;
@@ -159,6 +165,7 @@ bool ReadInputFile(std::string input_name) {
       fscanf(input_file, "%s", bacteria_name[i]);
       strcat(bacteria_name[i], ".faa");
     }
+
     fclose(input_file);
     return true;
   } else

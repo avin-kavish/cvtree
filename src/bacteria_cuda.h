@@ -30,12 +30,14 @@ private:
     cudaMallocManaged(&vector, M * sizeof(long));
     cudaMallocManaged(&second, M1 * sizeof(long));
     cudaMallocManaged(&one_l, AA_NUMBER * sizeof(long));
+
     // cudaMemAdvise(vector, M * sizeof(long),
     // cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
     // cudaMemAdvise(second, M1 * sizeof(long),
-    // cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId); cudaMemAdvise(one_l,
-    // AA_NUMBER * sizeof(long), cudaMemAdviseSetPreferredLocation,
-    // cudaCpuDeviceId);
+    // cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
+    // cudaMemAdvise(one_l, AA_NUMBER * sizeof(long),
+    // cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
+
     memset(vector, 0, M * sizeof(long));
     memset(second, 0, M1 * sizeof(long));
     memset(one_l, 0, AA_NUMBER * sizeof(long));
@@ -119,13 +121,15 @@ public:
     count = pos;
     vector_len_sqrt = sqrt(vector_len);
     cudaFree(dense_stochastic);
+
     // cudaMallocManaged(&sparse_vector, pos * sizeof(double));
     // cudaMallocManaged(&sparse_index, pos * sizeof(long));
     // cudaMemcpy(sparse_vector, tempv, pos * sizeof(double),
-    // cudaMemcpyHostToHost); cudaMemcpy(sparse_index, tempi, pos *
-    // sizeof(long), cudaMemcpyHostToHost);
-    // // memcpy(sparse_vector, tempv, pos * sizeof(double));
-    // // memcpy(sparse_index, tempi, pos * sizeof(long));
+    // cudaMemcpyHostToHost);
+    // cudaMemcpy(sparse_index, tempi, pos * sizeof(long),
+    // cudaMemcpyHostToHost);
+    // memcpy(sparse_vector, tempv, pos * sizeof(double));
+    // memcpy(sparse_index, tempi, pos * sizeof(long));
     // free(tempv);
     // free(tempi);
 
